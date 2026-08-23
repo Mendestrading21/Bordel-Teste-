@@ -33,6 +33,23 @@ jobs:
     name: Format, lint, types, tests, build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    # PostgreSQL réel : les politiques RLS ne peuvent être vérifiées que par le
+    # moteur qui les applique. Une simulation ne prouverait rien.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: portfolio_lab_ci
+          POSTGRES_DB: portfolio_lab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -61,7 +78,14 @@ jobs:
       - name: Tests unitaires
         run: pnpm run test:unit
 
+      - name: Installer le client psql
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client
+
       - name: Tests d'intégration
+        env:
+          # Mot de passe d'un conteneur éphémère de CI, détruit à la fin du job.
+          # Il ne donne accès à rien d'autre et n'est pas un secret.
+          DATABASE_URL_TEST: postgresql://postgres:portfolio_lab_ci@localhost:5432/portfolio_lab_test
         run: pnpm run test:integration
 
       - name: Build de production

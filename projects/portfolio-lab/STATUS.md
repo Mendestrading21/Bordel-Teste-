@@ -4,7 +4,7 @@ Dernière mise à jour : 23 août 2026
 
 ## Phase
 
-**Lot 01 — Fondation du workspace**
+**Lot 02 — Authentification et base de données**
 
 ## État global
 
@@ -57,6 +57,44 @@ Dernière mise à jour : 23 août 2026
 - CI GitHub : format, lint, typecheck, tests, build, E2E, scan de secrets ;
 - ADR 0001 consignant les choix techniques.
 
+## Lot 02 — livrables vérifiés
+
+- migration `0001_initial_schema.sql` : 13 tables, 10 types énumérés, contraintes
+  de validation et déclencheurs `updated_at` ;
+- migration `0002_row_level_security.sql` : RLS activée **et forcée** sur les 13
+  tables, quatre politiques par table utilisateur, lecture seule sur le
+  référentiel de marché, aucune politique sur le journal d'exploitation ;
+- validation ISIN en base, format **et** clé de contrôle Luhn ;
+- déclencheurs de cohérence hiérarchique empêchant de rattacher une ressource au
+  portefeuille d'un tiers ;
+- runner de migrations avec empreinte SHA-256 et détection de dérive ;
+- `packages/database` : configuration validée, client avec `numeric` préservé en
+  chaîne, repositories typés, traduction d'erreurs sans fuite de détail SQL ;
+- `apps/web/src/lib/auth` : résolution d'état de session à quatre cas, détection
+  d'une clé `service_role` exposée au navigateur ;
+- seed de démonstration entièrement fictif, **sans aucun cours** ;
+- CI dotée d'un service PostgreSQL 16 réel, avec garde-fou contre un saut
+  silencieux des tests RLS.
+
+## Preuves d'exécution — Lot 02
+
+Commandes réellement exécutées le 23 août 2026, sur Node 22.22.2 / pnpm 10.4.1 /
+PostgreSQL 16.13 :
+
+| Commande                    | Résultat                                          |
+| --------------------------- | ------------------------------------------------- |
+| `pnpm run format:check`     | tous les fichiers conformes                       |
+| `pnpm run lint`             | 0 erreur, 0 avertissement                         |
+| `pnpm run typecheck`        | 8 packages, 0 erreur                              |
+| `pnpm run test:unit`        | 149 tests, 13 fichiers — verts                    |
+| `pnpm run test:integration` | 99 tests, 6 fichiers — verts, sur PostgreSQL réel |
+| `pnpm run build`            | build de production réussi                        |
+| `pnpm run test:e2e`         | 84 tests sur 4 tailles d'écran — verts            |
+
+Vérification de la qualité des tests RLS par mutation : remplacer
+`using (user_id = current_user_id())` par `using (true)` sur `portfolios` fait
+échouer 3 tests. Les assertions ne sont donc pas vides.
+
 ## Preuves d'exécution — Lot 01
 
 Commandes réellement exécutées le 23 août 2026, sur Node 22.22.2 / pnpm 10.4.1 :
@@ -106,7 +144,11 @@ Décisions techniques du Lot 01 (détail dans `docs/adr/0001-socle-technique.md`
   développées contre des fixtures et un fournisseur `mock` déterministe, et
   resteront explicitement marquées « en attente de clé » ;
 - le dépôt porte encore le nom d'incubation `Bordel-Teste-`, même si le projet
-  s'appelle PortfolioLab.
+  s'appelle PortfolioLab ;
+- **aucun projet Supabase n'existe** : le schéma, les politiques et la résolution
+  de session sont écrits et testés, mais le flux d'authentification réel
+  (échange de cookie, rappel OAuth) n'est branché sur rien. L'interface l'annonce
+  explicitement plutôt que de simuler une session.
 
 ## Journal
 

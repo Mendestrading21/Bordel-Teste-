@@ -77,6 +77,16 @@ ouverte : elles arrivent au Lot 05. Le processus existe dès maintenant pour que
 la frontière « les clés vivent ici, jamais dans le navigateur » soit matérialisée
 avant qu'une clé existe.
 
+### Extensions d'import
+
+Les packages purs TypeScript (`packages/*`, `apps/market-gateway`) importent avec
+l'extension `.js` : `verbatimModuleSyntax` compile vers de l'ESM, où le
+spécificateur doit être résolvable tel quel. `apps/web` importe sans extension,
+la résolution webpack de Next.js ne réécrivant pas `.js` vers `.ts` pour le code
+applicatif.
+
+La règle est donc : `.js` partout sauf dans `apps/web`.
+
 ## Conséquences
 
 - Les montants ne peuvent pas être manipulés accidentellement en `number` :
