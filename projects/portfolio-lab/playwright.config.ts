@@ -38,7 +38,7 @@ export default defineConfig({
   testDir: "./tests/e2e",
   // Les parcours avec données ne sont collectés que lorsque le mode
   // démonstration est actif ; sinon ils échoueraient sur un portefeuille vide.
-  testIgnore: demoMode ? [] : ["**/portfolio.spec.ts", "**/funds.spec.ts"],
+  testIgnore: demoMode ? [] : ["**/portfolio.spec.ts", "**/funds.spec.ts", "**/options.spec.ts"],
   fullyParallel: true,
   forbidOnly: Boolean(process.env["CI"]),
   retries: process.env["CI"] ? 1 : 0,
