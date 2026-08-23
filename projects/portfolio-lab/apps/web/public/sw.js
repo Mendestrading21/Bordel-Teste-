@@ -119,6 +119,35 @@ async function warmReferencedAssets(html) {
   );
 }
 
+/**
+ * Marque une page servie depuis le cache.
+ *
+ * L'attribut posé ici est ce qui **révèle** le bandeau « hors ligne » — par
+ * CSS, sans aucun JavaScript de page. C'est délibéré : une page servie hors
+ * ligne est exactement la situation où l'hydratation peut ne pas aboutir, et
+ * un avertissement qui dépendrait d'elle disparaîtrait au moment précis où il
+ * compte.
+ *
+ * La réécriture porte sur la première balise `<html`, dont Next garantit la
+ * présence en tête de document. Si elle est introuvable, la page est renvoyée
+ * telle quelle plutôt que d'échouer : mieux vaut une page sans bandeau qu'une
+ * page blanche.
+ */
+async function markAsCached(response) {
+  try {
+    const html = await response.text();
+    const marked = html.replace(/<html\b/i, '<html data-pl-offline="cache"');
+
+    return new Response(marked, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  } catch {
+    return response;
+  }
+}
+
 async function handleNavigation(request) {
   try {
     const response = await fetch(request);
@@ -139,7 +168,7 @@ async function handleNavigation(request) {
   } catch {
     const cached = await caches.match(request, { ignoreSearch: true });
     if (cached) {
-      return cached;
+      return markAsCached(cached);
     }
 
     const fallback = await caches.match(OFFLINE_FALLBACK);

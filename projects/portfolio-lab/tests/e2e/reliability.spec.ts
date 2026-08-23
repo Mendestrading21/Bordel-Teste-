@@ -98,6 +98,16 @@ test.describe("dégradation hors ligne", () => {
 
     // La page revient depuis le cache…
     await expect(page.getByRole("heading", { name: "Accueil" })).toBeVisible();
+
+    /*
+     * …et c'est le **service worker** qui l'a signalée, pas le veilleur client.
+     *
+     * Les deux posent le même attribut avec une valeur différente. Exiger
+     * `cache` prouve que l'avertissement vient du HTML servi, et non d'un effet
+     * React — donc qu'il survivrait à une hydratation qui n'aboutit pas, ce qui
+     * est précisément la situation d'une page hors ligne.
+     */
+    await expect(page.locator("html")).toHaveAttribute("data-pl-offline", "cache");
     // …et ne se fait jamais passer pour un état à jour.
     const notice = page.getByRole("status").filter({ hasText: "Hors ligne" });
     await expect(notice).toBeVisible();
@@ -254,5 +264,56 @@ test.describe("politique de sécurité du contenu", () => {
     await context.setOffline(true);
     await expect(page.getByRole("status").filter({ hasText: "Hors ligne" })).toBeVisible();
     await context.setOffline(false);
+  });
+});
+
+test.describe("le bandeau hors ligne ne dépend pas du JavaScript", () => {
+  test("le seul CSS suffit à le révéler, scripts désactivés", async ({ browser }) => {
+    /*
+     * La garantie centrale de ce lot, vérifiée frontalement.
+     *
+     * Une première version montait le bandeau depuis un effet client. Il
+     * disparaissait donc exactement quand il comptait : une page servie hors
+     * ligne est précisément la situation où l'hydratation peut ne pas aboutir.
+     *
+     * Ici les scripts de page sont désactivés, et la réponse est marquée comme
+     * le fait le service worker quand il sert depuis son cache. Si le bandeau
+     * apparaît, c'est que le CSS seul y suffit.
+     */
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+
+    await page.route("**/*", async (route) => {
+      if (route.request().resourceType() !== "document") {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      // Même transformation que `markAsCached` dans `public/sw.js`.
+      const body = (await response.text()).replace(/<html\b/i, '<html data-pl-offline="cache"');
+      await route.fulfill({ response, body });
+    });
+
+    await page.goto("/");
+
+    const notice = page.locator(".pl-offline");
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText("Hors ligne");
+    await expect(notice).toContainText(/dernière connexion/);
+    // L'horodatage absolu est rendu par le serveur : il est lisible sans JS.
+    await expect(notice.locator("time")).toHaveAttribute("datetime", /\d{4}-\d{2}-\d{2}T/);
+
+    await context.close();
+  });
+
+  test("reste masqué sur une page servie normalement, scripts désactivés", async ({ browser }) => {
+    // Contrôle négatif : sans la marque, le bandeau ne doit jamais apparaître.
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+
+    await page.goto("/");
+    await expect(page.locator(".pl-offline")).toBeHidden();
+
+    await context.close();
   });
 });

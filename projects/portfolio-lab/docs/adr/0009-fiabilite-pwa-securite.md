@@ -26,6 +26,33 @@ horodatage dans la page, et un bandeau annonce l'âge de ce qui est affiché.
 Sans cette moitié-là, le cache hors ligne serait un mensonge silencieux — c'est
 elle qui rend le mécanisme acceptable, pas le cache lui-même.
 
+### Le bandeau ne dépend pas du JavaScript
+
+Première version : le bandeau était monté par un effet client. Il disparaissait
+donc exactement quand il comptait — une page servie hors ligne est précisément
+la situation où l'hydratation peut ne pas aboutir, et la page se présentait
+alors comme à jour.
+
+Il est désormais **rendu par le serveur dans chaque page et masqué par CSS**.
+Deux sources indépendantes lèvent l'attribut `data-pl-offline` sur `<html>` :
+
+1. **le service worker**, qui l'inscrit dans le HTML qu'il sert depuis son
+   cache — aucun script de page n'intervient ;
+2. **le veilleur client**, pour la coupure survenant alors que la page est déjà
+   ouverte. Amélioration, jamais garantie.
+
+Les deux posent des valeurs distinctes (`cache` et `live`), ce qui permet aux
+tests d'exiger que l'avertissement vienne bien du HTML servi. Un test charge la
+page scripts désactivés et exige le bandeau visible ; un contrôle négatif exige
+qu'il reste masqué sur une page non marquée.
+
+Le service worker charge par ailleurs les fichiers référencés par chaque page
+servie en ligne. C'est nécessaire pour que la page hors ligne soit
+_fonctionnelle_, même si l'avertissement n'en dépend plus : le navigateur
+télécharge les chunks pendant le premier chargement, avant que le service
+worker ne prenne le contrôle, puis les ressort de son propre cache HTTP sans
+jamais repasser par lui.
+
 Les routes d'API ne sont jamais mises en cache. Un jeton de canal rejoué depuis
 un cache, ou une sauvegarde périmée servie silencieusement, seraient tous deux
 pires qu'une erreur franche.

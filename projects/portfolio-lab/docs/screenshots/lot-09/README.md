@@ -16,6 +16,10 @@ affiché vient de l'horodatage inscrit par le serveur dans la page elle-même �
 une page sortie du cache a été rendue à un moment que le navigateur ne connaît
 pas autrement.
 
+Il est **rendu par le serveur et révélé par CSS**, jamais monté par JavaScript :
+une page servie hors ligne est précisément la situation où l'hydratation peut ne
+pas aboutir, et l'avertissement ne doit pas disparaître au moment où il compte.
+
 Le bouton de suppression reste inactif tant que le mot n'est pas recopié
 exactement. Le serveur revérifie ce mot : une garde purement visuelle se
 contourne en une requête.

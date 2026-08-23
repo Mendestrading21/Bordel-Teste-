@@ -89,8 +89,8 @@ Dernière mise à jour : 23 août 2026
 | `pnpm run test:unit`                      | 632 tests — verts                      |
 | `pnpm run test:integration`               | 164 tests — verts, sur PostgreSQL réel |
 | `pnpm run build`                          | build de production réussi             |
-| `pnpm run test:e2e` (sans données)        | 136 tests — verts                      |
-| `pnpm run test:e2e` (portefeuille peuplé) | 311 verts, 69 ignorés                  |
+| `pnpm run test:e2e` (sans données)        | 144 tests — verts                      |
+| `pnpm run test:e2e` (portefeuille peuplé) | 319 verts, 69 ignorés                  |
 | `pnpm audit --audit-level moderate`       | aucune vulnérabilité connue            |
 
 Les 69 ignorés sont les parcours de session, sans objet en mode démonstration,
@@ -115,16 +115,31 @@ et ceux qui dépendent du service worker — que `next dev` n'enregistre pas.
    configuration du serveur, en vérifiant son secret partagé avant
    d'authentifier.
 
-4. **Une page pouvait être servie hors ligne sans son JavaScript**, donc sans
-   le bandeau qui annonce son âge — précisément ce que ce bandeau existe pour
-   empêcher. Le navigateur télécharge les chunks pendant le _premier_
-   chargement, avant que le service worker ne prenne le contrôle, puis les
-   ressort de son propre cache HTTP sans jamais repasser par lui : ils
-   n'atteignaient donc jamais le cache du service worker. Celui-ci charge
-   désormais explicitement les fichiers référencés par chaque page servie en
-   ligne. **Trouvé par la CI**, où le test échouait sur les quatre gabarits
-   alors qu'il passait en local, et confirmé par mutation — sans ce
-   réchauffement, les scripts sont toujours absents après quinze secondes.
+4. **Le bandeau hors ligne dépendait de l'hydratation**, et disparaissait donc
+   exactement quand il comptait. Une page servie depuis le cache est
+   précisément la situation où le JavaScript client peut ne pas aboutir : la
+   page s'affichait alors comme si elle était à jour.
+
+   **Trouvé par la CI**, où le test échouait sur les quatre gabarits alors
+   qu'il passait en local. Deux corrections successives, dont la première était
+   insuffisante :
+
+   - le service worker charge désormais les fichiers référencés par chaque page
+     servie en ligne. Le navigateur télécharge les chunks pendant le _premier_
+     chargement, avant que le service worker ne prenne le contrôle, puis les
+     ressort de son propre cache HTTP sans jamais repasser par lui : ils
+     n'atteignaient jamais son cache. Vérifié par mutation — sans ce
+     réchauffement, ils sont toujours absents après quinze secondes ;
+   - **mais cela ne suffisait pas** : la CI a échoué une seconde fois, chunks
+     en cache. Le bandeau est donc **rendu par le serveur dans chaque page et
+     révélé par CSS**, jamais monté par JavaScript. Le service worker inscrit
+     `data-pl-offline="cache"` dans le HTML qu'il sert ; le veilleur client ne
+     couvre plus que la coupure survenant page ouverte, en amélioration et non
+     en garantie.
+
+   Vérifié frontalement : un test charge la page **scripts désactivés** et
+   exige que le bandeau soit visible, avec un contrôle négatif sur une page non
+   marquée.
 
 Un cinquième point, découvert en écrivant les tests : un contrôle de
 débordement au niveau de la page ne voit rien d'un tableau coupé dans un

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 
 import { BottomNav } from "@/components/bottom-nav";
 import { OfflineNotice } from "@/components/offline-notice";
+import { OfflineWatcher } from "@/components/offline-watcher";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 
 import "./globals.css";
@@ -78,6 +79,7 @@ export default function RootLayout({
         </div>
         <BottomNav />
         <ServiceWorkerRegistration />
+        <OfflineWatcher renderedAt={renderedAt} />
       </body>
     </html>
   );

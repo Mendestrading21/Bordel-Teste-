@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { describeAge } from "./offline-notice.js";
+import { describeAge } from "./offline-age.js";
 
 const NOW = new Date("2026-05-04T17:35:00.000Z");
 
@@ -28,15 +28,11 @@ describe("describeAge", () => {
     expect(describeAge(ago(1_439), NOW)).toBe("il y a 23 heures");
   });
 
-  it("arrondit vers le bas : mieux vaut annoncer une donnée plus récente qu'elle ne l'est jamais", () => {
-    // 90 minutes → « 1 heure », pas « 2 heures ». L'utilisateur qui voit
-    // « 1 heure » sur une donnée d'1 h 30 sous-estime l'âge ; l'inverse le
-    // ferait douter d'une donnée fraîche.
+  it("arrondit vers le bas", () => {
     expect(describeAge(ago(90), NOW)).toBe("il y a 1 heure");
   });
 
-  it("ne produit pas de durée négative pour une page rendue à l'instant", () => {
-    // Une horloge client légèrement en avance sur le serveur est courante.
+  it("ne produit pas de durée négative pour une horloge client en avance", () => {
     expect(describeAge(new Date(NOW.getTime() + 5_000), NOW)).toBe("il y a moins d'une minute");
   });
 });
