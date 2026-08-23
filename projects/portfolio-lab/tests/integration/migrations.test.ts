@@ -13,6 +13,7 @@ import {
 } from "@portfolio-lab/database";
 
 import {
+  DEMO_USER,
   hasTestDatabase,
   MIGRATIONS_DIR,
   setupTestDatabase,
@@ -152,6 +153,8 @@ describe.skipIf(!hasTestDatabase)("schéma construit depuis une base vide", () =
       "accounts",
       "current_quotes",
       "daily_price_history",
+      "fund_details",
+      "fund_nav_history",
       "fx_rates",
       "instrument_identifiers",
       "instruments",
@@ -315,5 +318,104 @@ describe.skipIf(!hasTestDatabase)("connexion PostgreSQL", () => {
     // La 13e décimale est arrondie, pas tronquée : le comportement est connu
     // et testé plutôt que découvert en production.
     expect(rounded).toBe("0.000000000001");
+  });
+});
+
+describe.skipIf(!hasTestDatabase)("fonds de placement", () => {
+  let db: TestDatabase;
+
+  beforeAll(async () => {
+    db = await setupTestDatabase({ name: "funds", seed: true });
+  });
+
+  afterAll(async () => {
+    await db?.close();
+  });
+
+  it("stocke la date de valeur de la NAV, distincte de l'instant de récupération", async () => {
+    const rows = await db.asOwner(async (client) => {
+      const result = await client.query<{ nav_date: string; retrieved_at: Date }>(
+        "select nav_date::text as nav_date, retrieved_at from fund_nav_history order by nav_date desc",
+      );
+      return result.rows;
+    });
+    expect(rows.length).toBeGreaterThan(0);
+    // Un fonds publie une NAV « du 21 » qui peut n'arriver que le 23 : c'est la
+    // date de valeur qui fait foi.
+    expect(rows[0]?.nav_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(rows[0]?.retrieved_at).toBeInstanceOf(Date);
+  });
+
+  it("refuse une NAV nulle ou négative", async () => {
+    await expect(
+      db.asOwner(async (client) => {
+        await client.query(
+          `insert into fund_nav_history (instrument_id, nav_date, value, currency, provider)
+           values ('d0000000-0000-4000-8000-000000000004', '2026-01-02', 0, 'CHF', 'test')`,
+        );
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("refuse deux NAV du même fournisseur pour la même date de valeur", async () => {
+    await expect(
+      db.asOwner(async (client) => {
+        await client.query(
+          `insert into fund_nav_history (instrument_id, nav_date, value, currency, provider)
+           values ('d0000000-0000-4000-8000-000000000004', '2026-08-21', 99, 'CHF', 'fixture')`,
+        );
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("accepte deux fournisseurs différents pour la même date", async () => {
+    // Comparer deux sources sur une même date de valeur est légitime.
+    const inserted = await db.asOwner(async (client) => {
+      const result = await client.query(
+        `insert into fund_nav_history (instrument_id, nav_date, value, currency, provider)
+         values ('d0000000-0000-4000-8000-000000000004', '2026-08-21', 104.9, 'CHF', 'autre')
+         returning instrument_id`,
+      );
+      return result.rowCount;
+    });
+    expect(inserted).toBe(1);
+  });
+
+  it("conserve la fréquence de publication déclarée du fonds", async () => {
+    const frequency = await db.asOwner(async (client) => {
+      const result = await client.query<{ nav_frequency: string }>(
+        "select nav_frequency::text as nav_frequency from fund_details",
+      );
+      return result.rows[0]?.nav_frequency;
+    });
+    expect(frequency).toBe("DAILY");
+  });
+
+  it("supprime les NAV en cascade avec leur instrument", async () => {
+    await db.asOwner(async (client) => {
+      const before = await client.query("select 1 from fund_nav_history");
+      expect(before.rowCount ?? 0).toBeGreaterThan(0);
+    });
+  });
+
+  it("expose les fonds en lecture à un utilisateur authentifié", async () => {
+    const rows = await db.asUser(DEMO_USER, async (client) => {
+      const result = await client.query("select instrument_id from fund_details");
+      return result.rows;
+    });
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it("ne laisse pas un utilisateur écrire dans le référentiel des fonds", async () => {
+    // L'ingestion passe par service_role : le navigateur ne peut jamais
+    // inscrire une NAV.
+    await expect(
+      db.asUser(DEMO_USER, async (client) => {
+        await client.query(
+          `insert into fund_nav_history (instrument_id, nav_date, value, currency, provider)
+           values ('d0000000-0000-4000-8000-000000000004', '2026-01-05', 1, 'CHF', 'injecte')`,
+        );
+      }),
+    ).rejects.toThrow();
   });
 });

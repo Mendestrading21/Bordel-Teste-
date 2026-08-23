@@ -31,6 +31,8 @@ describe.skipIf(!hasTestDatabase)("couverture RLS du schéma", () => {
     "current_quotes",
     "daily_price_history",
     "fx_rates",
+    "fund_details",
+    "fund_nav_history",
   ] as const;
 
   /** Tables d'exploitation, invisibles au client. */
