@@ -81,3 +81,20 @@ export function toFieldErrors(error: z.ZodError): Record<string, string> {
 }
 
 export { positiveDecimal };
+
+/**
+ * Mot que l'utilisateur doit recopier pour supprimer toutes ses données.
+ *
+ * Une case à cocher se coche sans lire. Recopier un mot oblige à traverser la
+ * phrase qui l'annonce, et c'est la dernière barrière avant une suppression
+ * définitive et sans sauvegarde automatique.
+ */
+export const DELETION_CONFIRMATION = "SUPPRIMER";
+
+export const deleteEverythingSchema = z.object({
+  confirmation: z.literal(DELETION_CONFIRMATION, {
+    errorMap: () => ({
+      message: `Recopiez exactement « ${DELETION_CONFIRMATION} » pour confirmer.`,
+    }),
+  }),
+});

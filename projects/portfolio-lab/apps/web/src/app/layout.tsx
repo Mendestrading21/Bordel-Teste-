@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 
 import { BottomNav } from "@/components/bottom-nav";
+import { OfflineNotice } from "@/components/offline-notice";
+import { OfflineWatcher } from "@/components/offline-watcher";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 
 import "./globals.css";
@@ -50,8 +52,18 @@ export const viewport: Viewport = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
+  /*
+   * Horodatage du rendu, inscrit dans la page.
+   *
+   * Une page servie depuis le cache du service worker a été rendue à un moment
+   * que le client ne peut pas deviner. Sans cette marque, le bandeau hors ligne
+   * pourrait dire « vous êtes hors ligne » mais pas « ces chiffres datent
+   * d'il y a trois heures » — et c'est la seconde moitié qui compte.
+   */
+  const renderedAt = new Date().toISOString();
+
   return (
-    <html lang="fr">
+    <html lang="fr" data-rendered-at={renderedAt}>
       <body>
         <a
           href="#contenu-principal"
@@ -61,11 +73,13 @@ export default function RootLayout({
         </a>
         <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col">
           <main id="contenu-principal" className="flex-1 px-4 pt-6 pb-4">
+            <OfflineNotice renderedAt={renderedAt} />
             {children}
           </main>
         </div>
         <BottomNav />
         <ServiceWorkerRegistration />
+        <OfflineWatcher renderedAt={renderedAt} />
       </body>
     </html>
   );

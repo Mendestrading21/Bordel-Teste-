@@ -339,11 +339,25 @@ test.describe("état des fournisseurs de données", () => {
 });
 
 test.describe("canal temps réel", () => {
-  test("le jeton de canal n'est jamais servi sans session", async ({ request }) => {
-    // La route ne doit pas émettre de jeton pour un appelant non authentifié.
+  test("un jeton n'est émis que sur une réponse 200, jamais sur un refus", async ({ request }) => {
+    /*
+     * L'ancienne version acceptait 200, 401 ou 503 sans rien vérifier du corps :
+     * elle passait quel que soit le contenu, et n'aurait pas vu un jeton émis
+     * dans une réponse d'erreur. Elle ratait aussi le 429 de la limitation de
+     * débit, qui est un refus parfaitement légitime.
+     *
+     * Ce qui doit tenir, quelle que soit la réponse : un jeton n'apparaît que
+     * dans un succès.
+     */
     const response = await request.post("/api/live-token");
-    // En mode démonstration une session existe ; hors de ce mode, 401 ou 503.
-    expect([200, 401, 503]).toContain(response.status());
+    const body = (await response.json()) as Record<string, unknown>;
+
+    if (response.status() === 200) {
+      expect(typeof body["token"]).toBe("string");
+    } else {
+      expect(body["token"]).toBeUndefined();
+      expect(typeof body["error"]).toBe("string");
+    }
   });
 
   test("le jeton émis ne contient jamais le secret partagé", async ({ request }) => {
@@ -363,5 +377,137 @@ test.describe("canal temps réel", () => {
     // Un jeton nominatif mis en cache serait réutilisable par un autre
     // utilisateur derrière le même proxy.
     expect(response.headers()["cache-control"]).toContain("no-store");
+  });
+});
+
+test.describe("limitation de débit", () => {
+  test("une rafale sur la route de jeton finit par être refusée, avec un délai", async ({
+    request,
+  }, testInfo) => {
+    // Une seule voie : quarante requêtes par gabarit satureraient le compteur
+    // pour les autres parcours du même serveur.
+    test.skip(testInfo.project.name !== "iphone-390", "Un seul gabarit suffit.");
+
+    /*
+     * Ce parcours a besoin d'une session : sans elle la route répond 401 avant
+     * toute limitation, et le test ne prouverait rien. Il vit donc dans la voie
+     * de démonstration.
+     *
+     * L'assertion ne suppose pas que le premier appel passe : les quatre
+     * tailles d'écran tournent en parallèle contre le même serveur et partagent
+     * le compteur. Ce qui doit tenir, c'est qu'une rafale finisse refusée.
+     */
+    let refusal: { status: number; retryAfter: string | undefined } | null = null;
+
+    for (let attempt = 0; attempt < 40 && refusal === null; attempt += 1) {
+      const response = await request.post("/api/live-token");
+      if (response.status() === 429) {
+        refusal = { status: 429, retryAfter: response.headers()["retry-after"] };
+      }
+    }
+
+    expect(refusal, "aucune requête refusée après 40 appels").not.toBeNull();
+    expect(Number(refusal?.retryAfter)).toBeGreaterThan(0);
+  });
+
+  test("le refus n'expose ni secret ni détail interne", async ({ request }, testInfo) => {
+    test.skip(testInfo.project.name !== "iphone-390", "Un seul gabarit suffit.");
+
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const response = await request.post("/api/live-token");
+      if (response.status() === 429) {
+        const body = await response.text();
+        expect(body).not.toContain("MARKET_GATEWAY_SHARED_SECRET");
+        expect(body).toContain("Réessayez");
+        return;
+      }
+    }
+    throw new Error("aucune requête refusée : la limitation ne s'est pas déclenchée");
+  });
+});
+
+test.describe("sauvegarde", () => {
+  test("produit un fichier complet, versionné et honnête sur son contenu", async ({
+    request,
+  }, testInfo) => {
+    /*
+     * Un seul gabarit d'écran.
+     *
+     * L'export est une charge JSON, pas une interface : le rejouer sur quatre
+     * tailles n'apprend rien et consomme la limite de débit de la route.
+     */
+    test.skip(testInfo.project.name !== "iphone-390", "Charge JSON : un seul gabarit suffit.");
+
+    const response = await request.get("/api/export");
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-disposition"]).toContain("attachment");
+    expect(response.headers()["content-disposition"]).toMatch(
+      /portfolio-lab-\d{4}-\d{2}-\d{2}\.json/,
+    );
+    // Une sauvegarde de patrimoine ne doit transiter par aucun cache partagé.
+    expect(response.headers()["cache-control"]).toContain("no-store");
+
+    const raw = await response.text();
+    const payload = JSON.parse(raw) as Record<string, unknown>;
+
+    expect(payload["formatVersion"]).toBe(1);
+    expect(payload["baseCurrency"]).toBe("CHF");
+    expect((payload["positions"] as unknown[]).length).toBe(6);
+    // Au moins les six points du seed. Le nombre n'est pas figé : le parcours
+    // d'enregistrement d'historique en ajoute légitimement.
+    expect((payload["snapshots"] as unknown[]).length).toBeGreaterThanOrEqual(6);
+
+    // Le fichier dit ce qu'il contient : oublié dans un dossier de
+    // téléchargements, il ne le dirait pas autrement.
+    expect(payload["notice"]).toContain("positions");
+    expect(payload["notice"]).toContain("aucun identifiant bancaire");
+
+    // Aucun cours : ils changeront au prochain chargement, et les inclure
+    // ferait croire que la sauvegarde fige une valorisation.
+    for (const absent of ["quotes", "marks", "fxRates"]) {
+      expect(Object.keys(payload)).not.toContain(absent);
+    }
+
+    // Les décimales restent des chaînes : relues comme nombres JSON, elles ne
+    // seraient plus exactement les quantités sauvegardées.
+    expect(raw).toContain('"quantity": "150.750000000000"');
+  });
+});
+
+test.describe("suppression des données", () => {
+  test("le bouton reste inactif tant que le mot n'est pas recopié", async ({ page }) => {
+    await page.goto("/reglages");
+
+    const button = page.getByRole("button", { name: /Supprimer définitivement/ });
+    await expect(button).toBeDisabled();
+
+    await page.getByLabel(/Recopiez/).fill("supprimer");
+    await expect(button).toBeDisabled();
+
+    await page.getByLabel(/Recopiez/).fill("SUPPRIMER");
+    await expect(button).toBeEnabled();
+  });
+
+  test("annonce clairement qu'aucune sauvegarde n'est conservée", async ({ page }) => {
+    await page.goto("/reglages");
+
+    const section = page.locator("section").filter({ hasText: "Supprimer toutes mes données" });
+    await expect(section.getByText(/ne peut pas être annulée/)).toBeVisible();
+    await expect(section.getByText(/aucune sauvegarde n'est conservée/)).toBeVisible();
+  });
+
+  test("propose la sauvegarde avant la suppression", async ({ page }) => {
+    await page.goto("/reglages");
+
+    const download = page.getByRole("link", { name: /Télécharger ma sauvegarde/ });
+    await expect(download).toBeVisible();
+
+    // La sauvegarde précède la suppression dans l'ordre de lecture de la page.
+    const downloadBox = await download.boundingBox();
+    const deleteBox = await page
+      .getByRole("heading", { name: "Supprimer toutes mes données" })
+      .boundingBox();
+    expect(downloadBox?.y ?? 0).toBeLessThan(deleteBox?.y ?? 0);
   });
 });

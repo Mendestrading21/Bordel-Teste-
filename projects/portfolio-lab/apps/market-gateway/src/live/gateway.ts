@@ -1,3 +1,5 @@
+import type { LogContext } from "@portfolio-lab/security";
+
 import type { MarketDataProvider, NormalizedQuote } from "@portfolio-lab/market-data";
 
 import { type CircuitBreaker, backoffDelayMs, type BackoffOptions } from "./backoff.js";
@@ -25,12 +27,14 @@ export type GatewayCoreOptions = {
   readonly now: () => number;
   /** Diffuse un message à un client précis. */
   readonly send: (clientId: ClientId, message: ServerMessage) => void;
-  /** Journalise sans jamais transporter de secret. */
-  readonly log: (
-    level: "info" | "warn" | "error",
-    message: string,
-    context?: Readonly<Record<string, unknown>>,
-  ) => void;
+  /**
+   * Journalise sans jamais transporter de secret ni de donnée personnelle.
+   *
+   * Le contexte n'accepte que des primitives : passer un objet arbitraire —
+   * une cotation, une réponse fournisseur — journaliserait tout ce qu'il
+   * contient. L'appelant choisit explicitement chaque champ.
+   */
+  readonly log: (level: "info" | "warn" | "error", message: string, context?: LogContext) => void;
 };
 
 export class GatewayCore {

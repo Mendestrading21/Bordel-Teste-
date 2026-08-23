@@ -48,6 +48,26 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /*
+   * Bandeau hors ligne.
+   *
+   * Rendu par le serveur dans chaque page et masqué par défaut. Il n'apparaît
+   * que si l'attribut est présent sur `<html>`, posé soit par le service worker
+   * quand il sert une page depuis son cache, soit par le veilleur client quand
+   * la connexion tombe pendant que la page est ouverte.
+   *
+   * Le révéler par CSS plutôt que par JavaScript est délibéré : une page servie
+   * hors ligne est exactement la situation où l'hydratation peut échouer, et
+   * l'avertissement ne doit pas disparaître au moment précis où il compte.
+   */
+  .pl-offline {
+    display: none;
+  }
+
+  :root[data-pl-offline] .pl-offline {
+    display: block;
+  }
+
   :focus-visible {
     outline: 2px solid var(--pl-accent-copper);
     outline-offset: 2px;

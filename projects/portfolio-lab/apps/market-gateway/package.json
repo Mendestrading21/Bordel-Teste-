@@ -13,6 +13,7 @@
   "dependencies": {
     "@portfolio-lab/domain": "workspace:*",
     "@portfolio-lab/market-data": "workspace:*",
+    "@portfolio-lab/security": "workspace:*",
     "ws": "^8.18.0",
     "zod": "^3.24.1"
   },
