@@ -116,6 +116,122 @@ test.describe("analyse", () => {
     await expect(page.getByText(/%/).first()).toBeVisible();
     await expect(page.getByText(/CHF/).first()).toBeVisible();
   });
+
+  test("trace la courbe du patrimoine et la double d'un tableau de valeurs", async ({ page }) => {
+    await page.goto("/analyse");
+    await expect(page.getByRole("heading", { name: "Évolution du patrimoine" })).toBeVisible();
+
+    // La courbe porte un résumé textuel : elle est annoncée, pas seulement vue.
+    const chart = page.getByRole("img", { name: /Patrimoine du .* au .*/ });
+    await expect(chart).toBeVisible();
+
+    // Le résumé de la courbe porte déjà les montants : aucune interaction
+    // n'est nécessaire pour connaître le début, la fin et les bornes.
+    await expect(chart).toHaveAttribute("aria-label", /CHF/);
+
+    // Les valeurs exactes sont à un clic, sur une cible tactile réglementaire.
+    const disclosure = page.getByText(/Valeurs chiffrées/);
+    await expect(disclosure).toBeVisible();
+    await disclosure.click();
+    await expect(page.getByRole("table", { name: /Valeur du patrimoine/ })).toBeVisible();
+  });
+
+  test("réduit les deux points du 6 mai à une seule journée", async ({ page }) => {
+    await page.goto("/analyse");
+    await page.getByText(/Valeurs chiffrées/).click();
+
+    // Le seed porte six snapshots dont deux le 6 mai : cette journée ne doit
+    // apparaître qu'une fois. Le nombre total de lignes n'est pas figé — le
+    // parcours d'enregistrement ci-dessous ajoute légitimement des points.
+    await expect(page.getByRole("rowheader", { name: "2026-05-06" })).toHaveCount(1);
+    for (const day of ["2026-05-04", "2026-05-05", "2026-05-07", "2026-05-08"]) {
+      await expect(page.getByRole("rowheader", { name: day })).toHaveCount(1);
+    }
+  });
+
+  test("affiche la contribution de chaque position au P&L", async ({ page }) => {
+    await page.goto("/analyse");
+    await expect(page.getByRole("heading", { name: /Contribution au P&L/ })).toBeVisible();
+  });
+
+  test("distingue valeur de marché et notionnel des options", async ({ page }) => {
+    await page.goto("/analyse");
+    await expect(page.getByRole("heading", { name: "Exposition options" })).toBeVisible();
+
+    const table = page.getByRole("table", { name: /exposition notionnelle/ });
+    // La devise est portée par les en-têtes, une seule fois.
+    await expect(table.getByRole("columnheader", { name: "Valeur (CHF)" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Notionnel (CHF)" })).toBeVisible();
+
+    /*
+     * Le tableau tient dans son conteneur.
+     *
+     * Le texte du DOM est toujours complet même quand il est visuellement
+     * coupé : une assertion sur `textContent` ne verrait rien. C'est la
+     * largeur de défilement du conteneur qui trahit un montant tronqué — et
+     * c'est ce qui arrivait au notionnel, coupé à « CHF 17'800.0 ».
+     */
+    const hidden = await table.evaluate((node) => {
+      const scroller = node.parentElement;
+      return scroller === null ? 0 : scroller.scrollWidth - scroller.clientWidth;
+    });
+    expect(hidden).toBeLessThanOrEqual(0);
+  });
+
+  test("annonce que les agrégats se réconcilient avec les positions", async ({ page }) => {
+    await page.goto("/analyse");
+    const panel = page.locator("section").filter({ hasText: "Réconciliation" });
+    await expect(panel.getByText(/correspond exactement/)).toBeVisible();
+    // Aucun écart : le panneau d'alerte ne doit pas apparaître.
+    await expect(page.getByText("Écart de réconciliation")).toHaveCount(0);
+  });
+
+  test("enregistre un point d'historique sur demande explicite", async ({ page }) => {
+    await page.goto("/analyse");
+
+    const button = page.getByRole("button", { name: /Enregistrer un point d'historique/ });
+    await expect(button).toBeVisible();
+
+    // La cible tactile respecte le minimum de 44 px.
+    const box = await button.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+    await button.click();
+    await expect(page.getByRole("status")).toContainText("Point d'historique enregistré");
+
+    // Le point apparaît dans l'historique : l'écriture a bien eu lieu.
+    await page.getByText(/Valeurs chiffrées/).click();
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Zurich",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    await expect(page.getByRole("rowheader", { name: today })).toHaveCount(1);
+  });
+
+  test("ne déborde pas horizontalement, portefeuille peuplé", async ({ page }) => {
+    /*
+     * `shell.spec.ts` vérifie déjà ce point, mais sur un portefeuille vide :
+     * les tableaux d'options et d'historique n'y existent pas. Ce sont
+     * précisément eux qui débordaient.
+     */
+    await page.goto("/analyse");
+    await page.getByText(/Valeurs chiffrées/).click();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("ne laisse aucun identifiant technique atteindre l'écran", async ({ page }) => {
+    await page.goto("/analyse");
+    const body = (await page.textContent("body")) ?? "";
+    for (const internal of ["UNFINGERPRINTED", "DIVERGED", "NO_MARK", "MARK_UNAVAILABLE"]) {
+      expect(body).not.toContain(internal);
+    }
+  });
 });
 
 test.describe("comptes", () => {
