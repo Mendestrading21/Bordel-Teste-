@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { toDecimalString, type DecimalString } from "@portfolio-lab/domain";
 
-import { decimalSeparator, formatMoney, formatPercent, NUMERIC_LOCALE, signOf } from "./format.js";
+import {
+  decimalSeparator,
+  formatMoney,
+  formatPercent,
+  formatQuantity,
+  NUMERIC_LOCALE,
+  signOf,
+} from "./format.js";
 
 const d = (value: string): DecimalString => toDecimalString(value);
 
@@ -86,5 +93,36 @@ describe("signOf", () => {
     expect(signOf(d("-1"))).toBe("negative");
     expect(signOf(d("0"))).toBe("neutral");
     expect(signOf(d("-0"))).toBe("neutral");
+  });
+});
+
+describe("formatQuantity", () => {
+  it("retire les zéros de queue d'un numeric(30, 12)", () => {
+    // PostgreSQL renvoie « 2.000000000000 » pour une quantité de 2.
+    expect(normalize(formatQuantity(d("2.000000000000")))).toBe("2");
+  });
+
+  it("conserve la précision réellement significative", () => {
+    expect(normalize(formatQuantity(d("150.750000000000")))).toBe("150.75");
+  });
+
+  it("conserve une très petite fraction", () => {
+    expect(normalize(formatQuantity(d("0.000000000001")))).toBe("0.000000000001");
+  });
+
+  it("groupe les milliers à la suisse", () => {
+    expect(normalize(formatQuantity(d("5000.000000000000")))).toBe("5'000");
+  });
+
+  it("gère une quantité négative", () => {
+    expect(normalize(formatQuantity(d("-10.000000000000")))).toBe("-10");
+  });
+
+  it("gère zéro", () => {
+    expect(normalize(formatQuantity(d("0")))).toBe("0");
+  });
+
+  it("ne produit jamais de notation exponentielle", () => {
+    expect(formatQuantity(d("0.000000000001"))).not.toContain("e");
   });
 });
