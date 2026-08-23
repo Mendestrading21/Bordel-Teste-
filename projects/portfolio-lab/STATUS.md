@@ -61,6 +61,8 @@ Dernière mise à jour : 23 août 2026
   `null` — jamais `0 %` — quand le P&L total est nul ;
 - **exposition des options par sous-jacent**, valeur de marché et notionnel
   rendus distinctement, sur le multiplicateur réellement enregistré ;
+- contrat écarté et **signalé** — jamais compté à zéro — quand aucun cours ne le
+  valorise, ou quand le cours reçu n'est pas dans la devise de son strike ;
 - **réconciliation affichée**, en égalité décimale stricte, sans tolérance
   d'arrondi ;
 - **empreinte des composants** (`components_hash`) couvrant valeurs, taux,
@@ -86,9 +88,10 @@ Dernière mise à jour : 23 août 2026
 | `pnpm run test:e2e` (sans données)        | 84 tests — verts                                                              |
 | `pnpm run test:e2e` (portefeuille peuplé) | 276 verts, 28 ignorés (parcours de session, sans objet en mode démonstration) |
 
-61 tests portent spécifiquement sur ce lot : contributions au P&L, exposition
-notionnelle, réduction de l'historique quotidien, comparabilité des séries,
-empreinte des composants, réconciliation, cloisonnement RLS des snapshots.
+66 tests portent spécifiquement sur ce lot : contributions au P&L, exposition
+notionnelle, exclusion des contrats non valorisés ou de devise incohérente,
+réduction de l'historique quotidien, comparabilité des séries, empreinte des
+composants, réconciliation, cloisonnement RLS des snapshots.
 
 Deux assertions ont été **vérifiées par mutation**, pour prouver qu'elles ne
 sont pas vides : falsifier un total fait échouer la réconciliation, et élargir

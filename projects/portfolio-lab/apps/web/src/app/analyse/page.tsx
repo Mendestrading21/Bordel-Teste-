@@ -223,7 +223,11 @@ export default async function AnalysePage(): Promise<React.JSX.Element> {
             labels={positionLabels}
             currency={currency}
           />
-          <OptionExposure exposures={analytics.options} currency={currency} />
+          <OptionExposure
+            exposures={analytics.options}
+            excluded={analytics.optionsExcluded}
+            currency={currency}
+          />
           <Reconciliation
             result={analytics.reconciliation}
             fingerprint={analytics.fingerprint}

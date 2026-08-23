@@ -11,11 +11,14 @@ import {
   isComparableSeries,
   optionExposure,
   pnlContributions,
+  prepareOptionExposure,
   portfolioReturn,
   reconcile,
   verifySnapshot,
   wealthChange,
+  type OptionContractInput,
   type OptionPositionInput,
+  type OptionValuationInput,
   type SnapshotRecord,
   type WealthPoint,
 } from "./analytics.js";
@@ -556,5 +559,76 @@ describe("isComparableSeries", () => {
   it("refuse un mélange de versions ou de devises", () => {
     expect(isComparableSeries([point("1.0.0"), point("2.0.0")])).toBe(false);
     expect(isComparableSeries([point("1.0.0"), point("1.0.0", "EUR")])).toBe(false);
+  });
+});
+
+describe("prepareOptionExposure", () => {
+  const contract = (overrides: Partial<OptionContractInput> = {}): OptionContractInput => ({
+    positionId: "o1",
+    underlyingId: "u1",
+    quantity: d("2"),
+    multiplier: d("100"),
+    strike: d("200"),
+    contractCurrency: "USD",
+    ...overrides,
+  });
+
+  const valued = (overrides: Partial<OptionValuationInput> = {}): OptionValuationInput => ({
+    nativeCurrency: "USD",
+    marketValueBase: d("1000"),
+    fxRate: d("0.89"),
+    ...overrides,
+  });
+
+  it("retient un contrat valorisé dans sa propre devise", () => {
+    const { inputs, excluded } = prepareOptionExposure([contract()], new Map([["o1", valued()]]));
+
+    expect(excluded).toEqual([]);
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]).toMatchObject({ marketValueBase: "1000", fxRate: "0.89" });
+  });
+
+  it("écarte un contrat non valorisé plutôt que de le compter à zéro", () => {
+    const { inputs, excluded } = prepareOptionExposure([contract()], new Map());
+
+    expect(inputs).toEqual([]);
+    expect(excluded).toEqual([{ positionId: "o1", reason: "NOT_VALUED" }]);
+  });
+
+  it("écarte un contrat dont le cours n'est pas dans la devise du strike", () => {
+    // Le taux disponible convertit un prix EUR ; l'appliquer à un strike USD
+    // produirait un notionnel faux d'un facteur de change entier.
+    const { inputs, excluded } = prepareOptionExposure(
+      [contract({ contractCurrency: "USD" })],
+      new Map([["o1", valued({ nativeCurrency: "EUR" })]]),
+    );
+
+    expect(inputs).toEqual([]);
+    expect(excluded).toEqual([{ positionId: "o1", reason: "CURRENCY_MISMATCH" }]);
+  });
+
+  it("n'écarte pas les autres contrats à cause d'un seul contrat fautif", () => {
+    const { inputs, excluded } = prepareOptionExposure(
+      [
+        contract({ positionId: "bon" }),
+        contract({ positionId: "sansCours" }),
+        contract({ positionId: "mauvaiseDevise" }),
+      ],
+      new Map([
+        ["bon", valued()],
+        ["mauvaiseDevise", valued({ nativeCurrency: "CHF" })],
+      ]),
+    );
+
+    expect(inputs.map((input) => input.positionId)).toEqual(["bon"]);
+    expect(excluded.map((entry) => entry.reason)).toEqual(["NOT_VALUED", "CURRENCY_MISMATCH"]);
+  });
+
+  it("un contrat écarté ne contribue à aucune exposition", () => {
+    const { inputs } = prepareOptionExposure(
+      [contract({ positionId: "sansCours", underlyingId: "u9" })],
+      new Map(),
+    );
+    expect(optionExposure(inputs)).toEqual([]);
   });
 });

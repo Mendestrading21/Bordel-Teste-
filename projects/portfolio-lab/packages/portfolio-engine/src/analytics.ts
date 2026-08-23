@@ -112,6 +112,79 @@ export type OptionPositionInput = {
   readonly fxRate: DecimalString;
 };
 
+/** Contrat d'option tel qu'il est stocké, avant confrontation à sa valorisation. */
+export type OptionContractInput = {
+  readonly positionId: string;
+  readonly underlyingId: string;
+  readonly quantity: DecimalString;
+  readonly multiplier: DecimalString;
+  readonly strike: DecimalString;
+  /** Devise du contrat, celle dans laquelle son strike est libellé. */
+  readonly contractCurrency: CurrencyCode;
+};
+
+/** Valorisation d'un contrat, telle que le moteur l'a produite. */
+export type OptionValuationInput = {
+  readonly nativeCurrency: CurrencyCode;
+  readonly marketValueBase: DecimalString;
+  readonly fxRate: DecimalString;
+};
+
+/** Raison pour laquelle un contrat n'entre pas dans l'exposition. */
+export type OptionExclusion = {
+  readonly positionId: string;
+  readonly reason: "NOT_VALUED" | "CURRENCY_MISMATCH";
+};
+
+export type PreparedOptionExposure = {
+  readonly inputs: readonly OptionPositionInput[];
+  readonly excluded: readonly OptionExclusion[];
+};
+
+/**
+ * Confronte chaque contrat à sa valorisation avant de calculer l'exposition.
+ *
+ * Deux situations écartent un contrat, et **aucune ne le compte à zéro** :
+ *
+ * - **non valorisé** : sa valeur de marché est inconnue ; lui en prêter une de
+ *   zéro sous-estimerait l'exposition affichée ;
+ * - **devise incohérente** : le strike est libellé dans la devise du contrat,
+ *   alors que le taux disponible est celui appliqué à son prix. Les deux
+ *   coïncident normalement — c'est le même instrument — mais rien ne le
+ *   garantit, et un cours reçu dans une autre devise produirait un notionnel
+ *   faux d'un facteur de change entier.
+ */
+export function prepareOptionExposure(
+  contracts: readonly OptionContractInput[],
+  valuations: ReadonlyMap<string, OptionValuationInput>,
+): PreparedOptionExposure {
+  const inputs: OptionPositionInput[] = [];
+  const excluded: OptionExclusion[] = [];
+
+  for (const contract of contracts) {
+    const valued = valuations.get(contract.positionId);
+    if (valued === undefined) {
+      excluded.push({ positionId: contract.positionId, reason: "NOT_VALUED" });
+      continue;
+    }
+    if (valued.nativeCurrency !== contract.contractCurrency) {
+      excluded.push({ positionId: contract.positionId, reason: "CURRENCY_MISMATCH" });
+      continue;
+    }
+    inputs.push({
+      positionId: contract.positionId,
+      underlyingId: contract.underlyingId,
+      quantity: contract.quantity,
+      multiplier: contract.multiplier,
+      strike: contract.strike,
+      marketValueBase: valued.marketValueBase,
+      fxRate: valued.fxRate,
+    });
+  }
+
+  return { inputs, excluded };
+}
+
 export function optionExposure(
   positions: readonly OptionPositionInput[],
 ): readonly UnderlyingExposure[] {

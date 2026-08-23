@@ -10,6 +10,7 @@ import { toDecimalString, type CurrencyCode, type DecimalString } from "@portfol
 import {
   componentsFingerprint,
   dailyHistory,
+  prepareOptionExposure,
   historyBounds,
   isComparableSeries,
   optionExposure,
@@ -17,6 +18,7 @@ import {
   reconcile,
   wealthChange,
   type HistoryBounds,
+  type OptionExclusion,
   type PnlContribution,
   type PortfolioValuation,
   type ReconciliationResult,
@@ -64,6 +66,8 @@ export type AnalyticsView = {
   readonly comparable: boolean;
   readonly contributions: readonly PnlContribution[];
   readonly options: readonly OptionExposureRecord[];
+  /** Contrats écartés de l'exposition, avec la raison — jamais comptés à zéro. */
+  readonly optionsExcluded: readonly ExcludedContract[];
   readonly reconciliation: ReconciliationResult;
   /** Empreinte des composants de la valorisation affichée. */
   readonly fingerprint: string;
@@ -84,9 +88,11 @@ const OPTION_CONTRACTS_QUERY = `
     oc.multiplier::text         as multiplier,
     oc.strike::text             as strike,
     oc.underlying_instrument_id as underlying_id,
-    u.name                      as underlying_label
+    u.name                      as underlying_label,
+    c.primary_currency          as contract_currency
   from positions p
   join option_contracts oc on oc.instrument_id = p.instrument_id
+  join instruments c on c.id = oc.instrument_id
   join instruments u on u.id = oc.underlying_instrument_id
   where p.portfolio_id = $1
 `;
@@ -98,7 +104,16 @@ type OptionContractRow = {
   strike: string;
   underlying_id: string;
   underlying_label: string;
+  contract_currency: string;
 };
+
+/**
+ * Raison pour laquelle un contrat n'entre pas dans l'exposition affichée.
+ *
+ * Le type vient du moteur : la règle d'exclusion y est testée, ce module ne
+ * fait que lui présenter les lignes lues en base.
+ */
+export type ExcludedContract = OptionExclusion;
 
 /**
  * Charge les analyses dérivées d'une vue déjà valorisée.
@@ -119,9 +134,10 @@ export async function loadAnalytics(view: PortfolioView): Promise<AnalyticsView 
 
   let history: readonly WealthPoint[] = [];
   let options: readonly OptionExposureRecord[] = [];
+  let optionsExcluded: readonly ExcludedContract[] = [];
 
   if (userId !== null && portfolioId !== null) {
-    ({ history, options } = await database().withUser(userId, async (client) => {
+    ({ history, options, optionsExcluded } = await database().withUser(userId, async (client) => {
       const snapshots = await snapshotRepository.listRecent(client, portfolioId, HISTORY_LIMIT);
       const records: SnapshotRecord[] = snapshots.map((row) => ({
         snapshotAt: row.snapshot_at.toISOString(),
@@ -133,32 +149,37 @@ export async function loadAnalytics(view: PortfolioView): Promise<AnalyticsView 
       }));
 
       const { rows } = await client.query<OptionContractRow>(OPTION_CONTRACTS_QUERY, [portfolioId]);
-      const valuedById = new Map(valuation.positions.map((p) => [p.positionId, p]));
       const labels = new Map<string, string>();
+      for (const row of rows) {
+        labels.set(row.underlying_id, row.underlying_label);
+      }
 
-      const exposures = optionExposure(
-        rows.flatMap((row) => {
-          const valued = valuedById.get(row.position_id);
-          // Un contrat non valorisé n'entre pas dans l'exposition : sa valeur de
-          // marché est inconnue, et lui en prêter une de zéro sous-estimerait
-          // l'exposition affichée.
-          if (valued === undefined) {
-            return [];
-          }
-          labels.set(row.underlying_id, row.underlying_label);
-          return [
+      /*
+       * La décision d'écarter un contrat appartient au moteur, pas à ce module :
+       * `option_contracts` ne porte pas de devise, et confronter le strike au
+       * taux appliqué au prix est une règle métier, testée à part.
+       */
+      const { inputs, excluded } = prepareOptionExposure(
+        rows.map((row) => ({
+          positionId: row.position_id,
+          underlyingId: row.underlying_id,
+          quantity: toDecimalString(row.quantity),
+          multiplier: toDecimalString(row.multiplier),
+          strike: toDecimalString(row.strike),
+          contractCurrency: row.contract_currency as CurrencyCode,
+        })),
+        new Map(
+          valuation.positions.map((position) => [
+            position.positionId,
             {
-              positionId: row.position_id,
-              underlyingId: row.underlying_id,
-              quantity: toDecimalString(row.quantity),
-              multiplier: toDecimalString(row.multiplier),
-              strike: toDecimalString(row.strike),
-              marketValueBase: valued.marketValueBase,
-              fxRate: valued.fxRate,
+              nativeCurrency: position.nativeCurrency,
+              marketValueBase: position.marketValueBase,
+              fxRate: position.fxRate,
             },
-          ];
-        }),
+          ]),
+        ),
       );
+      const exposures = optionExposure(inputs);
 
       return {
         history: dailyHistory(records),
@@ -169,6 +190,7 @@ export async function loadAnalytics(view: PortfolioView): Promise<AnalyticsView 
           notionalBase: exposure.notionalBase,
           contractCount: exposure.contractCount,
         })),
+        optionsExcluded: excluded,
       };
     }));
   }
@@ -180,6 +202,7 @@ export async function loadAnalytics(view: PortfolioView): Promise<AnalyticsView 
     comparable: isComparableSeries(history),
     contributions: pnlContributions(valuation),
     options,
+    optionsExcluded,
     reconciliation: reconcile(valuation),
     fingerprint: componentsFingerprint(valuation),
   };
