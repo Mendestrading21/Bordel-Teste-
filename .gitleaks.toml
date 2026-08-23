@@ -19,4 +19,9 @@ description = "Valeurs fictives des tests d'expurgation de secrets"
 paths = [
   '''projects/portfolio-lab/apps/market-gateway/src/config\.test\.ts''',
   '''projects/portfolio-lab/apps/market-gateway/src/logger\.test\.ts''',
+  '''projects/portfolio-lab/packages/database/src/config\.test\.ts''',
+  '''projects/portfolio-lab/apps/web/src/lib/auth/config\.test\.ts''',
+  # Mot de passe du conteneur PostgreSQL éphémère de la CI : détruit à la fin
+  # du job, sans accès à quoi que ce soit d'autre.
+  '''\.github/workflows/portfolio-lab\.yml''',
 ]
