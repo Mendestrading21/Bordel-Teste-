@@ -58,6 +58,29 @@ export const createPositionSchema = z.object({
 
 export type CreatePositionInput = z.infer<typeof createPositionSchema>;
 
+/**
+ * Modification d'une position.
+ *
+ * Ni l'instrument ni le compte n'y figurent. Changer l'instrument reviendrait à
+ * réécrire le passé : les points d'historique déjà enregistrés auraient été
+ * calculés sur un autre titre.
+ */
+export const updatePositionSchema = z.object({
+  id: z.string().uuid("Identifiant invalide"),
+  quantity: decimalInput.refine(
+    (value) => Number.parseFloat(value) !== 0,
+    "Une position active ne peut pas avoir une quantité nulle",
+  ),
+  averageCost: nonNegativeDecimal,
+  costCurrency: currencyCodeSchema,
+  notes: z
+    .string()
+    .trim()
+    .max(2000, "Notes trop longues")
+    .optional()
+    .transform((value) => (value === undefined || value === "" ? null : value)),
+});
+
 export const deleteByIdSchema = z.object({ id: z.string().uuid("Identifiant invalide") });
 
 /** Résultat d'une action de formulaire, rendu tel quel par l'interface. */
