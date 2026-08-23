@@ -56,6 +56,11 @@ function dayNumber(date: string): number {
  *
  * Une série plate est centrée verticalement plutôt qu'écrasée en bas : sans
  * cela, `(valeur − min) / (max − min)` diviserait par zéro.
+ *
+ * C'est le seul endroit du lot où des montants passent par `Number`, et c'est
+ * volontaire : il s'agit de calculer des **coordonnées en pixels**, pas une
+ * valeur affichée. Tous les montants lus à l'écran — résumé, tableau, bornes —
+ * viennent de `formatMoney` appliqué aux décimales d'origine.
  */
 type Coordinate = { readonly x: number; readonly y: number };
 

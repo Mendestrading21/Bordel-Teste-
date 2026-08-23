@@ -40,7 +40,14 @@ import type { PortfolioView } from "./portfolio";
  * d'aujourd'hui produirait un graphique plausible et faux.
  */
 
-/** Nombre de points chargés — un an de jours ouvrés, plus une marge. */
+/**
+ * Nombre de **snapshots** lus, pas de journées affichées.
+ *
+ * Une journée peut en porter plusieurs — `DATA_MODEL.md` prévoit un point après
+ * publication des données et un autre après chaque modification manuelle — donc
+ * 400 lignes couvrent au moins un an de jours ouvrés, souvent nettement plus.
+ * La borne existe pour ne pas charger un historique sans fin dans un rendu.
+ */
 export const HISTORY_LIMIT = 400;
 
 let cachedDatabase: Database | null = null;
