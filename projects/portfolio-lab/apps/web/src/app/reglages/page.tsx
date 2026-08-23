@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { ArchiveAccountForm, CreateAccountForm } from "@/components/account-forms";
+import { DeletionSection, ExportSection } from "@/components/data-management";
 import { DemoBanner } from "@/components/demo-banner";
 import { PageHeader } from "@/components/page-header";
 import { loadPortfolioView } from "@/lib/data/portfolio";
@@ -122,6 +123,8 @@ export default async function ReglagesPage(): Promise<React.JSX.Element> {
         </ul>
       </section>
 
+      <ExportSection />
+
       <section className="mt-4 rounded-token-lg border border-subtle bg-surface p-5">
         <h2 className="mb-2 text-base font-medium text-primary">
           Ce que l&apos;application ne fait pas
@@ -133,6 +136,8 @@ export default async function ReglagesPage(): Promise<React.JSX.Element> {
           <li>aucune donnée différée, NAV ou manuelle présentée comme « en direct ».</li>
         </ul>
       </section>
+
+      <DeletionSection />
     </>
   );
 }

@@ -13,13 +13,17 @@ import {
 } from "@portfolio-lab/database";
 import { toDecimalString, type CurrencyCode } from "@portfolio-lab/domain";
 
+import { deletionLimiter, logger } from "../security/limits";
+
 import { recordSnapshot } from "./analytics";
+import { deleteAllUserData } from "./export";
 import { resolveDataMode } from "./mode";
 import { loadPortfolioView } from "./portfolio";
 import {
   createAccountSchema,
   createPositionSchema,
   deleteByIdSchema,
+  deleteEverythingSchema,
   toFieldErrors,
   type ActionResult,
 } from "./validation";
@@ -266,4 +270,84 @@ export async function recordSnapshotAction(
 
   revalidatePath("/analyse");
   return { status: "success", message: "Point d'historique enregistré." };
+}
+
+/**
+ * Supprime définitivement toutes les données de l'utilisateur.
+ *
+ * `§11` de la commande exige une « suppression complète des données
+ * utilisateur ». Trois protections l'encadrent, et aucune n'est décorative :
+ *
+ * 1. **un mot à recopier** — une case à cocher se coche sans lire ;
+ * 2. **une limite de débit** — pour qu'un script ne puisse pas la marteler ;
+ * 3. **une vérification a posteriori** — les lignes restantes sont comptées
+ *    table par table, et une suppression incomplète est signalée comme un
+ *    échec. Annoncer « données supprimées » alors qu'il en reste serait le pire
+ *    résultat possible de cet écran.
+ */
+export async function deleteEverythingAction(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const userId = currentUserId();
+  if (userId === null) {
+    return NOT_AUTHENTICATED;
+  }
+
+  const parsed = deleteEverythingSchema.safeParse({
+    confirmation: formData.get("confirmation"),
+  });
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "Suppression annulée : la confirmation ne correspond pas.",
+      fieldErrors: toFieldErrors(parsed.error),
+    };
+  }
+
+  const decision = deletionLimiter.check(userId, Date.now());
+  if (!decision.allowed) {
+    return {
+      status: "error",
+      message: "Trop de tentatives. Réessayez dans quelques minutes.",
+    };
+  }
+
+  let report: Awaited<ReturnType<typeof deleteAllUserData>>;
+  try {
+    report = await deleteAllUserData();
+  } catch (error) {
+    logger.error("suppression des données impossible", { userId });
+    return toActionError(error);
+  }
+
+  if (report === null) {
+    return NOT_AUTHENTICATED;
+  }
+
+  const leftovers = Object.keys(report.remaining);
+  if (leftovers.length > 0) {
+    logger.error("suppression incomplète", { userId, tables: leftovers.join(",") });
+    return {
+      status: "error",
+      message:
+        "La suppression est incomplète : certaines données subsistent. " +
+        "Rien n'est confirmé tant que ce n'est pas résolu.",
+    };
+  }
+
+  logger.info("données utilisateur supprimées", {
+    userId,
+    portfolios: report.deletedPortfolios,
+  });
+
+  revalidatePath("/");
+  revalidatePath("/positions");
+  revalidatePath("/analyse");
+  revalidatePath("/reglages");
+
+  return {
+    status: "success",
+    message: "Toutes vos données ont été supprimées. Il n'en reste aucune trace en base.",
+  };
 }
