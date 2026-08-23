@@ -4,7 +4,7 @@ Dernière mise à jour : 23 août 2026
 
 ## Phase
 
-**Lot 06 — Fonds de placement et NAV**
+**Lot 07 — Options**
 
 ## État global
 
@@ -56,6 +56,46 @@ Dernière mise à jour : 23 août 2026
 - `.env.example` documenté, aucun `.env` réel versionné ;
 - CI GitHub : format, lint, typecheck, tests, build, E2E, scan de secrets ;
 - ADR 0001 consignant les choix techniques.
+
+## Lot 07 — livrables vérifiés
+
+- symbole OSI construit et relu en arithmétique décimale exacte ; strike plus
+  fin que le millième refusé plutôt qu'arrondi ; date d'échéance vérifiée comme
+  réellement existante ;
+- parcours guidé en cinq étapes, aucun contrat approchant jamais substitué ;
+- strikes triés numériquement, pas lexicographiquement ;
+- choix du mark auditable : méthode retenue **et** motifs ayant écarté les
+  précédentes, tous traduits en français ;
+- cinq situations écartant le midpoint : fourchette absente, inversée, à zéro,
+  trop large, ou trop ancienne ;
+- dernier prix conservé en dernier recours mais fraîcheur dégradée en `STALE`
+  quoi qu'annonce le fournisseur ;
+- échec explicite quand rien n'est exploitable, jamais de prix de repli ;
+- multiplicateur non standard signalé avec mention du cas du split ;
+- **aucune sensibilité calculée** — `parseGreeks` exige source et horodatage ;
+- jours restants calendaires, contrat négociable le jour de son échéance ;
+- chaîne de démonstration couvrant liquide, illiquide, sans cotation,
+  multiplicateur ajusté et expiré.
+
+## Preuves d'exécution — Lot 07
+
+| Commande                                  | Résultat                               |
+| ----------------------------------------- | -------------------------------------- |
+| `pnpm run format:check`                   | tous les fichiers conformes            |
+| `pnpm run lint`                           | 0 erreur, 0 avertissement              |
+| `pnpm run typecheck`                      | 8 packages, 0 erreur                   |
+| `pnpm run test:unit`                      | 540 tests — verts                      |
+| `pnpm run test:integration`               | 147 tests — verts, sur PostgreSQL réel |
+| `pnpm run build`                          | build de production réussi             |
+| `pnpm run test:e2e` (sans données)        | 84 tests — verts                       |
+| `pnpm run test:e2e` (portefeuille peuplé) | 244 tests — verts                      |
+
+73 tests portent spécifiquement sur les options : encodage OSI en millièmes,
+dates inexistantes, cascade de valorisation sur contrats liquide, illiquide et
+expiré, refus de substitution, avertissements de contrat.
+
+Défaut corrigé pendant le lot : l'identifiant interne `SPREAD_TOO_WIDE`
+s'affichait à l'utilisateur au lieu de son libellé français.
 
 ## Lot 06 — livrables vérifiés
 

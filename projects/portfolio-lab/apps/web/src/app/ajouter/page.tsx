@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import type { AssetType } from "@portfolio-lab/domain";
 
@@ -58,6 +59,22 @@ export default async function AjouterPage(): Promise<React.JSX.Element> {
   return (
     <>
       {header}
+
+      <section className="mb-4 rounded-token-md border border-subtle bg-surface px-5 py-4">
+        <h2 className="text-sm font-medium text-primary">Vous ajoutez une option ?</h2>
+        <p className="mt-1 mb-3 text-xs leading-relaxed text-secondary">
+          Un contrat se choisit par étapes — sous-jacent, sens, échéance, strike — plutôt que par
+          saisie d&apos;un symbole. Un symbole mal tapé désigne un autre contrat existant, pas une
+          erreur.
+        </p>
+        <Link
+          href="/ajouter/option"
+          className="inline-flex min-h-[var(--pl-touch-target)] items-center text-sm text-copper hover:underline"
+        >
+          Sélection guidée d&apos;une option →
+        </Link>
+      </section>
+
       <section className="rounded-token-lg border border-subtle bg-surface px-5 py-5">
         <AddPositionForm
           accounts={view.accounts.map((account) => ({ id: account.id, name: account.name }))}

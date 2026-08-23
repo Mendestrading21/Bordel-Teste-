@@ -7,3 +7,8 @@ export * from "./demo-instruments.js";
 export * from "./nav-calendar.js";
 export * from "./fund-identity.js";
 export * from "./nav-ingestion.js";
+export * from "./osi.js";
+export * from "./option-mark.js";
+export * from "./option-chain.js";
+export * from "./greeks.js";
+export * from "./demo-chain.js";
