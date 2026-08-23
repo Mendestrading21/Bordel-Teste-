@@ -15,11 +15,16 @@ export default defineConfig({
       {
         test: {
           name: "unit",
-          include: [
-            "packages/*/src/**/*.test.ts",
-            "apps/web/src/**/*.test.ts",
-            "apps/market-gateway/src/config.test.ts",
-            "apps/market-gateway/src/logger.test.ts",
+          include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts"],
+          // Le seul test de `apps/*/src` qui ouvre un socket : il relève de
+          // l'intégration. Énumérer les fichiers unitaires un par un ferait
+          // silencieusement oublier tout nouveau test.
+          exclude: [
+            "**/node_modules/**",
+            // Ces deux suites ouvrent de vraies sockets : elles relèvent de
+            // l'intégration.
+            "apps/market-gateway/src/server.test.ts",
+            "apps/market-gateway/src/live/ws-server.test.ts",
           ],
           environment: "node",
         },
@@ -27,7 +32,11 @@ export default defineConfig({
       {
         test: {
           name: "integration",
-          include: ["apps/market-gateway/src/server.test.ts", "tests/integration/**/*.test.ts"],
+          include: [
+            "apps/market-gateway/src/server.test.ts",
+            "apps/market-gateway/src/live/ws-server.test.ts",
+            "tests/integration/**/*.test.ts",
+          ],
           environment: "node",
         },
       },

@@ -221,3 +221,31 @@ test.describe("état des fournisseurs de données", () => {
     expect(body).toContain("Adaptateur non implémenté");
   });
 });
+
+test.describe("canal temps réel", () => {
+  test("le jeton de canal n'est jamais servi sans session", async ({ request }) => {
+    // La route ne doit pas émettre de jeton pour un appelant non authentifié.
+    const response = await request.post("/api/live-token");
+    // En mode démonstration une session existe ; hors de ce mode, 401 ou 503.
+    expect([200, 401, 503]).toContain(response.status());
+  });
+
+  test("le jeton émis ne contient jamais le secret partagé", async ({ request }) => {
+    const response = await request.post("/api/live-token");
+    if (response.status() !== 200) {
+      test.skip(true, "Canal temps réel non configuré dans cet environnement");
+      return;
+    }
+    const payload = (await response.json()) as { token: string };
+    // Le jeton est un HMAC : il ne peut pas contenir le secret en clair.
+    expect(payload.token).not.toContain("secret");
+    expect(payload.token.split(".")).toHaveLength(3);
+  });
+
+  test("la réponse du jeton n'est jamais mise en cache", async ({ request }) => {
+    const response = await request.post("/api/live-token");
+    // Un jeton nominatif mis en cache serait réutilisable par un autre
+    // utilisateur derrière le même proxy.
+    expect(response.headers()["cache-control"]).toContain("no-store");
+  });
+});

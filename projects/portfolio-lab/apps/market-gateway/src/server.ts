@@ -14,17 +14,29 @@ export type HealthPayload = {
   readonly service: "market-gateway";
   readonly provider: GatewayConfig["provider"];
   readonly uptimeSeconds: number;
-  /** Les connexions fournisseurs arrivent au Lot 05. */
-  readonly liveChannel: "not-implemented";
+  /**
+   * État du canal temps réel.
+   *
+   * `disabled` quand aucun secret partagé n'est configuré : le canal refuse
+   * alors toute connexion, ce qui doit être visible sans avoir à lire les
+   * journaux.
+   */
+  readonly liveChannel: "ready" | "disabled";
+  readonly connectedClients: number;
 };
 
-export function buildHealthPayload(config: GatewayConfig, uptimeSeconds: number): HealthPayload {
+export function buildHealthPayload(
+  config: GatewayConfig,
+  uptimeSeconds: number,
+  connectedClients = 0,
+): HealthPayload {
   return {
     status: "ok",
     service: "market-gateway",
     provider: config.provider,
     uptimeSeconds: Math.floor(uptimeSeconds),
-    liveChannel: "not-implemented",
+    liveChannel: config.sharedSecret === undefined ? "disabled" : "ready",
+    connectedClients,
   };
 }
 
@@ -32,10 +44,11 @@ export function createGatewayServer(
   config: GatewayConfig,
   logger: Logger,
   uptime: () => number = () => process.uptime(),
+  connectedClients: () => number = () => 0,
 ): Server {
   return createServer((request, response) => {
     if (request.method === "GET" && request.url === "/health") {
-      const body = JSON.stringify(buildHealthPayload(config, uptime()));
+      const body = JSON.stringify(buildHealthPayload(config, uptime(), connectedClients()));
       response.writeHead(200, {
         "content-type": "application/json; charset=utf-8",
         "cache-control": "no-store",
