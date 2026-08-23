@@ -180,6 +180,33 @@ jobs:
           path: projects/portfolio-lab/playwright-report/
           retention-days: 7
 
+  audit:
+    name: Audit des dépendances
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: projects/portfolio-lab/pnpm-lock.yaml
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      # `moderate` et non `high` : les avis modérés touchant une dépendance de
+      # build sont exactement ceux qu'on cesse de regarder si on ne les fait pas
+      # échouer. Une exception assumée doit passer par `pnpm.overrides`, où elle
+      # est visible dans le diff.
+      - name: Auditer les dépendances
+        run: pnpm audit --audit-level moderate
+
   secrets:
     name: Scan de secrets
     runs-on: ubuntu-latest

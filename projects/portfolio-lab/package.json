@@ -2,7 +2,7 @@
   "name": "portfolio-lab",
   "version": "0.1.0",
   "private": true,
-  "description": "PortfolioLab — PWA privée de suivi patrimonial manuel (actions, ETF, options, fonds, cash) consolidé en CHF.",
+  "description": "PortfolioLab \u2014 PWA priv\u00e9e de suivi patrimonial manuel (actions, ETF, options, fonds, cash) consolid\u00e9 en CHF.",
   "license": "UNLICENSED",
   "packageManager": "pnpm@10.4.1",
   "engines": {
@@ -48,6 +48,10 @@
       "esbuild",
       "sharp",
       "@tailwindcss/oxide"
-    ]
+    ],
+    "overrides": {
+      "postcss": "^8.5.23",
+      "sharp": "^0.35.0"
+    }
   }
 }
