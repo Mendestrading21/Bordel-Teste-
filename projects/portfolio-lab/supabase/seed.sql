@@ -111,6 +111,41 @@ values
    'd0000000-0000-4000-8000-00000000a001', 'd0000000-0000-4000-8000-000000000005',
    5000, 1.000000000000, 'CHF', '2024-01-01');
 
+-- -----------------------------------------------------------------------------
+-- Historique de démonstration
+--
+-- Points fictifs, à dates fixes, pour que l'écran d'analyse ait une courbe à
+-- montrer sans qu'aucun cours réel n'entre dans le dépôt.
+--
+-- La `calculation_version` doit rester celle du moteur : un historique produit
+-- par une autre version n'est délibérément pas tracé. Un test d'intégration
+-- vérifie cette égalité, pour qu'une montée de version fasse échouer la suite
+-- plutôt que d'effacer silencieusement la courbe de démonstration.
+--
+-- Le 2026-05-06 porte volontairement DEUX points : c'est le cas prévu par
+-- DATA_MODEL.md — un snapshot après publication des données, un autre après une
+-- modification manuelle. L'historique quotidien doit retenir le second.
+-- -----------------------------------------------------------------------------
+
+insert into portfolio_snapshots (
+  user_id, portfolio_id, snapshot_at,
+  market_value_base, cost_basis_base, unrealized_pnl_base, day_pnl_base,
+  base_currency, calculation_version
+)
+values
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-04T17:35:00Z',
+   19420.000000000000, 18960.000000000000, 460.000000000000, 85.000000000000, 'CHF', '1.0.0'),
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-05T17:35:00Z',
+   19180.000000000000, 18960.000000000000, 220.000000000000, -240.000000000000, 'CHF', '1.0.0'),
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-06T17:35:00Z',
+   19310.000000000000, 18960.000000000000, 350.000000000000, 130.000000000000, 'CHF', '1.0.0'),
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-06T20:10:00Z',
+   19365.000000000000, 18960.000000000000, 405.000000000000, 185.000000000000, 'CHF', '1.0.0'),
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-07T17:35:00Z',
+   19740.000000000000, 18960.000000000000, 780.000000000000, 375.000000000000, 'CHF', '1.0.0'),
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-08T17:35:00Z',
+   19905.000000000000, 18960.000000000000, 945.000000000000, 165.000000000000, 'CHF', '1.0.0');
+
 /*
  * Aucun cours n'est inséré ici.
  *

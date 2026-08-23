@@ -218,6 +218,110 @@ export const positionRepository = {
   },
 };
 
+export type SnapshotRow = {
+  readonly id: string;
+  readonly user_id: string;
+  readonly portfolio_id: string;
+  readonly snapshot_at: Date;
+  readonly market_value_base: DecimalString;
+  readonly cost_basis_base: DecimalString;
+  readonly unrealized_pnl_base: DecimalString;
+  readonly day_pnl_base: DecimalString | null;
+  readonly base_currency: CurrencyCode;
+  readonly calculation_version: string;
+  readonly components_hash: string | null;
+  readonly created_at: Date;
+};
+
+export const snapshotRepository = {
+  /**
+   * Snapshots les plus récents, du plus ancien au plus récent.
+   *
+   * L'ordre de lecture en base est décroissant — c'est le sens de l'index — mais
+   * la liste est retournée croissante : un historique se trace de gauche à
+   * droite, et laisser l'écran le retrier serait une occasion d'oublier.
+   */
+  async listRecent(client: PoolClient, portfolioId: string, limit: number): Promise<SnapshotRow[]> {
+    const { rows } = await client.query<SnapshotRow>(
+      `select * from (
+         select * from portfolio_snapshots
+         where portfolio_id = $1
+         order by snapshot_at desc
+         limit $2
+       ) recent
+       order by snapshot_at asc`,
+      [portfolioId, limit],
+    );
+    return rows;
+  },
+
+  /**
+   * Enregistre un point d'historique.
+   *
+   * `snapshotAt` est **fourni par l'appelant**, jamais lu d'une horloge interne :
+   * un repository qui daterait lui-même ses écritures rendrait les tests
+   * non reproductibles et empêcherait de rejouer un historique.
+   *
+   * Un second enregistrement au même instant **met à jour** le point existant.
+   * `DATA_MODEL.md` prévoit un snapshot après chaque modification manuelle
+   * importante ; refuser le doublon ferait échouer une action légitime, et en
+   * insérer deux créerait deux vérités pour un même instant.
+   */
+  async record(
+    client: PoolClient,
+    input: {
+      userId: string;
+      portfolioId: string;
+      snapshotAt: string;
+      marketValueBase: DecimalString;
+      costBasisBase: DecimalString;
+      unrealizedPnlBase: DecimalString;
+      dayPnlBase: DecimalString | null;
+      baseCurrency: CurrencyCode;
+      calculationVersion: string;
+      componentsHash: string | null;
+    },
+  ): Promise<SnapshotRow> {
+    try {
+      const { rows } = await client.query<SnapshotRow>(
+        `insert into portfolio_snapshots
+           (user_id, portfolio_id, snapshot_at, market_value_base, cost_basis_base,
+            unrealized_pnl_base, day_pnl_base, base_currency, calculation_version,
+            components_hash)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         on conflict (portfolio_id, snapshot_at) do update set
+           market_value_base   = excluded.market_value_base,
+           cost_basis_base     = excluded.cost_basis_base,
+           unrealized_pnl_base = excluded.unrealized_pnl_base,
+           day_pnl_base        = excluded.day_pnl_base,
+           base_currency       = excluded.base_currency,
+           calculation_version = excluded.calculation_version,
+           components_hash     = excluded.components_hash
+         returning *`,
+        [
+          input.userId,
+          input.portfolioId,
+          input.snapshotAt,
+          input.marketValueBase,
+          input.costBasisBase,
+          input.unrealizedPnlBase,
+          input.dayPnlBase,
+          input.baseCurrency,
+          input.calculationVersion,
+          input.componentsHash,
+        ],
+      );
+      const recorded = rows[0];
+      if (recorded === undefined) {
+        throw new Error("Enregistrement du snapshot refusé par les politiques d'accès");
+      }
+      return recorded;
+    } catch (error) {
+      translateDatabaseError(error, "Le point d'historique");
+    }
+  },
+};
+
 export const instrumentRepository = {
   async findById(client: PoolClient, id: string): Promise<InstrumentRow | null> {
     const { rows } = await client.query<InstrumentRow>("select * from instruments where id = $1", [

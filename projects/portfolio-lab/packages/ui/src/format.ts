@@ -44,6 +44,30 @@ export function formatMoney(
 }
 
 /**
+ * Montant sans son code de devise.
+ *
+ * Réservé aux tableaux dont **toutes** les cellules sont dans la même devise et
+ * dont l'en-tête la porte : répéter « CHF » à chaque ligne consomme la largeur
+ * dont les chiffres ont besoin, et sur un écran de 390 px cela finit par
+ * tronquer les montants eux-mêmes.
+ *
+ * Le nombre de décimales reste celui de la devise : un montant en CHF garde ses
+ * deux décimales même sans son code.
+ */
+export function formatAmount(
+  value: DecimalString,
+  currency: CurrencyCode,
+  locale: string = NUMERIC_LOCALE,
+): string {
+  const digits = displayFractionDigits(currency);
+  const rounded = decimal(value).toFixed(digits);
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(Number(rounded));
+}
+
+/**
  * Formate une variation en pourcentage avec son signe explicite.
  *
  * `null` produit un tiret cadratin : une variation inconnue ne doit jamais être
