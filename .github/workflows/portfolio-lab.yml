@@ -91,6 +91,14 @@ jobs:
       - name: Build de production
         run: pnpm run build
 
+      - name: Vérifier que la matrice de couverture est reproductible
+        # Le rapport versionné doit correspondre exactement à ce que produit le
+        # code : un rapport obsolète justifierait un choix de fournisseur sur
+        # des résultats périmés.
+        run: |
+          pnpm run coverage:matrix
+          git diff --exit-code -- docs/market-data
+
 
   e2e:
     name: Parcours E2E mobile et desktop
