@@ -13,9 +13,12 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@portfolio-lab/domain": "workspace:*"
+    "@portfolio-lab/domain": "workspace:*",
+    "pg": "^8.23.0",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
     "typescript": "^5.7.3"
   }
 }
