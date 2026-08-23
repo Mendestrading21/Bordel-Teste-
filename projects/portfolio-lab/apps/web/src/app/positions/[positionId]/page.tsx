@@ -10,6 +10,7 @@ import {
 } from "@portfolio-lab/domain";
 
 import { DeletePositionForm } from "@/components/delete-position-form";
+import { EditPositionForm } from "@/components/edit-position-form";
 import { DemoBanner } from "@/components/demo-banner";
 import { FreshnessBadge } from "@/components/freshness-badge";
 import { Money, Percent, Quantity } from "@/components/money";
@@ -150,6 +151,14 @@ export default async function PositionDetailPage({
           </dl>
         </section>
       )}
+
+      <EditPositionForm
+        positionId={position.positionId}
+        quantity={position.quantity}
+        averageCost={position.averageCost}
+        costCurrency={position.costCurrency}
+        notes={position.notes}
+      />
 
       <DeletePositionForm positionId={position.positionId} name={position.instrumentName} />
     </>

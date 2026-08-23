@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { positionRepository } from "@portfolio-lab/database";
+import type { DecimalString } from "@portfolio-lab/domain";
+
 import {
   ALICE,
   BOB,
@@ -267,6 +270,120 @@ describe.skipIf(!hasTestDatabase)("Row Level Security", () => {
       expect(created?.id).toBeTruthy();
       // La quantité revient en chaîne : la précision numeric est préservée.
       expect(typeof created?.quantity).toBe("string");
+    });
+  });
+
+  describe("modification d'une position", () => {
+    const ALICE_INSTRUMENT = "cccccccc-0000-4000-8000-000000000301";
+
+    async function givenAlicePosition(): Promise<string> {
+      return db.asOwner(async (client) => {
+        await client.query(
+          `insert into instruments (id, asset_type, name, primary_currency)
+           values ($1, 'STOCK', 'Démo Modification SA', 'CHF')
+           on conflict (id) do nothing`,
+          [ALICE_INSTRUMENT],
+        );
+        const { rows } = await client.query<{ id: string }>(
+          `insert into positions
+             (user_id, portfolio_id, account_id, instrument_id, quantity, average_cost, cost_currency)
+           values ($1, $2, $3, $4, 10, 100, 'CHF')
+           returning id`,
+          [ALICE, ALICE_PORTFOLIO, ALICE_ACCOUNT, ALICE_INSTRUMENT],
+        );
+        return rows[0]?.id as string;
+      });
+    }
+
+    it("Alice modifie sa propre position", async () => {
+      const id = await givenAlicePosition();
+
+      const updated = await db.asUser(ALICE, (client) =>
+        positionRepository.update(client, id, {
+          quantity: "12" as DecimalString,
+          averageCost: "110" as DecimalString,
+          costCurrency: "CHF",
+          notes: "revu",
+        }),
+      );
+
+      expect(updated?.quantity).toBe("12.000000000000");
+      expect(updated?.average_cost).toBe("110.000000000000");
+      expect(updated?.notes).toBe("revu");
+    });
+
+    it("Bob ne peut pas modifier la position d'Alice", async () => {
+      const id = await givenAlicePosition();
+
+      const attempted = await db.asUser(BOB, (client) =>
+        positionRepository.update(client, id, {
+          quantity: "999" as DecimalString,
+          averageCost: "1" as DecimalString,
+          costCurrency: "CHF",
+          notes: "détourné",
+        }),
+      );
+
+      // RLS rend la ligne invisible : rien n'est mis à jour et rien n'est révélé.
+      expect(attempted).toBeNull();
+
+      const { rows } = await db.asUser(ALICE, (client) =>
+        client.query<{ quantity: string }>("select quantity from positions where id = $1", [id]),
+      );
+      expect(rows[0]?.quantity).toBe("10.000000000000");
+    });
+
+    it("un accès anonyme ne modifie rien", async () => {
+      const id = await givenAlicePosition();
+
+      await db.asAnonymous((client) =>
+        client.query("update positions set quantity = 999 where id = $1", [id]),
+      );
+
+      const { rows } = await db.asUser(ALICE, (client) =>
+        client.query<{ quantity: string }>("select quantity from positions where id = $1", [id]),
+      );
+      expect(rows[0]?.quantity).toBe("10.000000000000");
+    });
+
+    it("une quantité nulle est refusée par la base, pas seulement par le formulaire", async () => {
+      const id = await givenAlicePosition();
+
+      await expect(
+        db.asUser(ALICE, (client) =>
+          positionRepository.update(client, id, {
+            quantity: "0" as DecimalString,
+            averageCost: "100" as DecimalString,
+            costCurrency: "CHF",
+            notes: null,
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it("le déclencheur met à jour `updated_at` sans que l'appelant s'en occupe", async () => {
+      const id = await givenAlicePosition();
+
+      const before = await db.asUser(ALICE, (client) =>
+        client.query<{ updated_at: Date }>("select updated_at from positions where id = $1", [id]),
+      );
+
+      await db.asUser(ALICE, (client) =>
+        positionRepository.update(client, id, {
+          quantity: "11" as DecimalString,
+          averageCost: "100" as DecimalString,
+          costCurrency: "CHF",
+          notes: null,
+        }),
+      );
+
+      const after = await db.asUser(ALICE, (client) =>
+        client.query<{ updated_at: Date }>("select updated_at from positions where id = $1", [id]),
+      );
+
+      const previous = before.rows[0]?.updated_at as Date;
+      const current = after.rows[0]?.updated_at as Date;
+      expect(current.getTime()).toBeGreaterThanOrEqual(previous.getTime());
     });
   });
 });

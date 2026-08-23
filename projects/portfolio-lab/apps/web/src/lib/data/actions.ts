@@ -13,7 +13,7 @@ import {
 } from "@portfolio-lab/database";
 import { toDecimalString, type CurrencyCode } from "@portfolio-lab/domain";
 
-import { deletionLimiter, logger } from "../security/limits";
+import { deletionLimiter, logger, mutationLimiter } from "../security/limits";
 
 import { recordSnapshot } from "./analytics";
 import { deleteAllUserData } from "./export";
@@ -24,6 +24,7 @@ import {
   createPositionSchema,
   deleteByIdSchema,
   deleteEverythingSchema,
+  updatePositionSchema,
   toFieldErrors,
   type ActionResult,
 } from "./validation";
@@ -167,6 +168,68 @@ export async function createPositionAction(
   revalidatePath("/positions");
   revalidatePath("/analyse");
   return { status: "success", message: "Position enregistrée." };
+}
+
+/**
+ * Modifie une position existante.
+ *
+ * Seuls la quantité, le coût moyen, sa devise et les notes sont modifiables.
+ * L'instrument et le compte ne le sont pas : les changer réécrirait le passé de
+ * la position, dont les points d'historique ont été calculés sur l'instrument
+ * d'origine.
+ */
+export async function updatePositionAction(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const userId = currentUserId();
+  if (userId === null) {
+    return NOT_AUTHENTICATED;
+  }
+
+  const parsed = updatePositionSchema.safeParse({
+    id: formData.get("id"),
+    quantity: formData.get("quantity"),
+    averageCost: formData.get("averageCost"),
+    costCurrency: formData.get("costCurrency"),
+    notes: formData.get("notes"),
+  });
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "La position n'a pas pu être modifiée.",
+      fieldErrors: toFieldErrors(parsed.error),
+    };
+  }
+
+  const decision = mutationLimiter.check(userId, Date.now());
+  if (!decision.allowed) {
+    return { status: "error", message: "Trop de modifications. Réessayez dans un instant." };
+  }
+
+  try {
+    const updated = await database().withUser(userId, (client) =>
+      positionRepository.update(client, parsed.data.id, {
+        quantity: toDecimalString(parsed.data.quantity),
+        averageCost: toDecimalString(parsed.data.averageCost),
+        costCurrency: parsed.data.costCurrency as CurrencyCode,
+        notes: parsed.data.notes,
+      }),
+    );
+    if (updated === null) {
+      // RLS rend invisible la ligne d'un tiers : « introuvable » est donc aussi
+      // la réponse à une tentative sur la position d'autrui.
+      return { status: "error", message: "Position introuvable." };
+    }
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/");
+  revalidatePath("/positions");
+  revalidatePath("/analyse");
+  revalidatePath(`/positions/${parsed.data.id}`);
+  return { status: "success", message: "Position modifiée." };
 }
 
 export async function deletePositionAction(

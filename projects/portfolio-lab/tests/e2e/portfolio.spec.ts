@@ -302,7 +302,17 @@ test.describe("ajout d'une position", () => {
 
   test("annonce qu'aucune recherche fournisseur n'existe encore", async ({ page }) => {
     await page.goto("/ajouter");
-    await expect(page.getByText(/Lot 04/)).toBeVisible();
+
+    /*
+     * L'assertion portait sur « Lot 04 », un numéro de lot depuis longtemps
+     * livré : l'écran promettait donc une fonctionnalité pour une étape déjà
+     * passée. Elle porte désormais sur ce que l'utilisateur doit comprendre —
+     * la liste est limitée, et pourquoi.
+     */
+    await expect(page.getByText(/Seuls les instruments déjà enregistrés/)).toBeVisible();
+    await expect(page.getByText(/fausse assurance sur l'identité du titre/)).toBeVisible();
+    // Aucun renvoi à un numéro de lot ne doit atteindre l'utilisateur.
+    await expect(page.getByText(/Lot \d/)).toHaveCount(0);
   });
 });
 
@@ -509,5 +519,64 @@ test.describe("suppression des données", () => {
       .getByRole("heading", { name: "Supprimer toutes mes données" })
       .boundingBox();
     expect(downloadBox?.y ?? 0).toBeLessThan(deleteBox?.y ?? 0);
+  });
+});
+
+test.describe("modification d'une position", () => {
+  /*
+   * Parcours critique n° 10 de QUALITY_GATES.md : « modification et suppression
+   * d'une position ». La suppression existait ; la modification manquait.
+   *
+   * Un seul gabarit : le parcours écrit en base, et le rejouer sur quatre
+   * tailles ferait quatre modifications concurrentes sur la même position.
+   */
+  test("modifie la quantité et la retrouve sur la fiche", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "iphone-390", "Le parcours écrit en base.");
+
+    await page.goto("/positions");
+    const first = page.getByRole("main").getByRole("link").first();
+    const href = await first.getAttribute("href");
+    await first.click();
+
+    const quantity = page.getByLabel("Quantité");
+    const before = await quantity.inputValue();
+    const after = String(Number(before) + 1);
+
+    await quantity.fill(after);
+    await page.getByRole("button", { name: /Enregistrer les modifications/ }).click();
+    await expect(page.getByText("Position modifiée.")).toBeVisible();
+
+    // La valeur persiste après un rechargement complet : elle vient de la base,
+    // pas d'un état de formulaire resté en mémoire.
+    await page.goto(href ?? "/positions");
+    await expect(page.getByLabel("Quantité")).toHaveValue(after);
+
+    // Remise dans l'état initial pour ne pas dépendre de l'ordre des parcours.
+    await page.getByLabel("Quantité").fill(before);
+    await page.getByRole("button", { name: /Enregistrer les modifications/ }).click();
+    await expect(page.getByText("Position modifiée.")).toBeVisible();
+  });
+
+  test("refuse une quantité nulle avec un message explicite", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "iphone-390", "Le parcours soumet un formulaire.");
+
+    await page.goto("/positions");
+    await page.getByRole("main").getByRole("link").first().click();
+
+    await page.getByLabel("Quantité").fill("0");
+    await page.getByRole("button", { name: /Enregistrer les modifications/ }).click();
+
+    await expect(page.getByText(/quantité nulle/)).toBeVisible();
+  });
+
+  test("n'offre de changer ni l'instrument ni le compte", async ({ page }) => {
+    await page.goto("/positions");
+    await page.getByRole("main").getByRole("link").first().click();
+
+    const form = page.locator("form").filter({ hasText: "Enregistrer les modifications" });
+    // Changer l'instrument réécrirait le passé de la position.
+    await expect(form.locator('select[name="instrumentId"]')).toHaveCount(0);
+    await expect(form.locator('select[name="accountId"]')).toHaveCount(0);
+    await expect(page.getByText(/réécrirait le passé/)).toBeVisible();
   });
 });

@@ -212,6 +212,51 @@ export const positionRepository = {
     }
   },
 
+  /**
+   * Met à jour une position existante.
+   *
+   * L'instrument et le compte ne sont **pas** modifiables ici. Changer
+   * l'instrument d'une position reviendrait à réécrire son passé : les points
+   * d'historique déjà enregistrés auraient été calculés sur un autre titre.
+   * Corriger une erreur d'instrument se fait en supprimant la position et en
+   * la ressaisissant, ce qui laisse une trace cohérente.
+   *
+   * Renvoie `null` quand aucune ligne n'est visible — position inexistante, ou
+   * appartenant à un tiers, RLS ne distinguant volontairement pas les deux.
+   */
+  async update(
+    client: PoolClient,
+    id: string,
+    input: {
+      quantity: DecimalString;
+      averageCost: DecimalString;
+      costCurrency: CurrencyCode;
+      notes?: string | null;
+    },
+  ): Promise<PositionRow | null> {
+    try {
+      /*
+       * `updated_at` n'apparaît pas dans la requête : le déclencheur
+       * `positions_set_updated_at` s'en charge. L'écrire ici aussi ferait
+       * croire que la colonne dépend de l'appelant, et les deux finiraient par
+       * diverger.
+       */
+      const { rows } = await client.query<PositionRow>(
+        `update positions
+            set quantity      = $2,
+                average_cost  = $3,
+                cost_currency = $4,
+                notes         = $5
+          where id = $1
+        returning *`,
+        [id, input.quantity, input.averageCost, input.costCurrency, input.notes ?? null],
+      );
+      return rows[0] ?? null;
+    } catch (error) {
+      translateDatabaseError(error, "La position");
+    }
+  },
+
   async delete(client: PoolClient, id: string): Promise<boolean> {
     const result = await client.query("delete from positions where id = $1", [id]);
     return (result.rowCount ?? 0) > 0;
