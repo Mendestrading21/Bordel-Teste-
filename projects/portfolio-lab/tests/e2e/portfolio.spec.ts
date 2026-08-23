@@ -189,3 +189,35 @@ test.describe("ajout d'une position", () => {
     await expect(page.getByText(/Lot 04/)).toBeVisible();
   });
 });
+
+test.describe("état des fournisseurs de données", () => {
+  test("liste les fournisseurs, y compris ceux jamais appelés", async ({ page }) => {
+    await page.goto("/reglages");
+    await expect(page.getByRole("heading", { name: "Fournisseurs de données" })).toBeVisible();
+    for (const label of ["Twelve Data", "Massive", "EODHD", "OpenFIGI"]) {
+      await expect(page.getByText(label, { exact: true })).toBeVisible();
+    }
+  });
+
+  test("annonce qu'aucun fournisseur réel n'a été appelé", async ({ page }) => {
+    await page.goto("/reglages");
+    const neverCalled = page.getByText("Non vérifié — jamais appelé");
+    // Les quatre candidats sont dans cet état.
+    await expect(neverCalled).toHaveCount(4);
+  });
+
+  test("indique le nom de la variable de clé, jamais une valeur", async ({ page }) => {
+    await page.goto("/reglages");
+    await expect(page.getByText("TWELVE_DATA_API_KEY")).toBeVisible();
+    const body = (await page.textContent("body")) ?? "";
+    // Une clé réelle est une longue chaîne alphanumérique ; le nom de variable
+    // n'en est pas une.
+    expect(body).not.toMatch(/[A-Za-z0-9]{32,}/);
+  });
+
+  test("aucun fournisseur réel n'est présenté comme utilisable", async ({ page }) => {
+    await page.goto("/reglages");
+    const body = (await page.textContent("body")) ?? "";
+    expect(body).toContain("Adaptateur non implémenté");
+  });
+});
