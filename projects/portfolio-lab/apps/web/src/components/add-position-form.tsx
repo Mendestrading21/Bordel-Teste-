@@ -79,8 +79,9 @@ export function AddPositionForm({
           ))}
         </select>
         <p className="mt-1 text-xs text-secondary">
-          La recherche par nom, ticker ou ISIN chez un fournisseur de données arrive au Lot 04.
-          Seuls les instruments déjà enregistrés sont proposés.
+          Seuls les instruments déjà enregistrés sont proposés. La recherche par nom, ticker ou ISIN
+          attend un fournisseur de données réel : aucun n&apos;est intégré à ce jour, et en suggérer
+          un que rien n&apos;a résolu donnerait une fausse assurance sur l&apos;identité du titre.
         </p>
         <FieldError result={result} field="instrumentId" />
       </div>
