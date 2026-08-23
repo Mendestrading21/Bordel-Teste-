@@ -7,3 +7,9 @@ test-results
 pnpm-lock.yaml
 *.png
 next-env.d.ts
+
+# Rapport généré par `pnpm run coverage:matrix`.
+# Le reformater casserait la vérification de reproductibilité de la CI, qui
+# compare la sortie du générateur au fichier versionné.
+docs/market-data/coverage-matrix.md
+docs/market-data/coverage-matrix.json
