@@ -1,0 +1,55 @@
+@import "tailwindcss";
+@import "@portfolio-lab/ui/tokens.css";
+
+/*
+ * `@theme inline` relie les utilitaires Tailwind aux tokens `--pl-*` sans les
+ * dupliquer : `tokens.css` reste la source unique des valeurs, vérifiée par
+ * les tests du package `ui`.
+ */
+@theme inline {
+  --color-canvas: var(--pl-background-canvas);
+  --color-surface: var(--pl-background-surface);
+  --color-elevated: var(--pl-background-elevated);
+  --color-subtle: var(--pl-border-subtle);
+  --color-primary: var(--pl-text-primary);
+  --color-secondary: var(--pl-text-secondary);
+  --color-copper: var(--pl-accent-copper);
+  --color-positive: var(--pl-positive);
+  --color-negative: var(--pl-negative);
+  --color-warning: var(--pl-warning);
+  --color-stale: var(--pl-stale);
+
+  --font-sans: var(--pl-font-sans);
+  --font-numeric: var(--pl-font-numeric);
+
+  --radius-token-sm: var(--pl-radius-sm);
+  --radius-token-md: var(--pl-radius-md);
+  --radius-token-lg: var(--pl-radius-lg);
+}
+
+@layer base {
+  html {
+    /* Empêche iOS Safari d'agrandir le texte en paysage. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--pl-background-canvas);
+    color: var(--pl-text-primary);
+    font-family: var(--pl-font-sans);
+    /* Réserve la hauteur de la barre de navigation basse et du safe-area iOS. */
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Les chiffres financiers gardent une chasse fixe pour rester alignés. */
+  .pl-numeric {
+    font-family: var(--pl-font-numeric);
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--pl-accent-copper);
+    outline-offset: 2px;
+  }
+}

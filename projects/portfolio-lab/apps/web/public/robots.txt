@@ -1,0 +1,3 @@
+# PortfolioLab est une application patrimoniale privée : aucune indexation.
+User-agent: *
+Disallow: /

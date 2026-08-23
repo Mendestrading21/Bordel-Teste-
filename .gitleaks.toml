@@ -1,0 +1,22 @@
+# Configuration gitleaks du dépôt.
+#
+# Les règles par défaut sont conservées ; seule une liste d'exceptions
+# étroitement ciblée est ajoutée pour les valeurs volontairement fictives des
+# tests qui vérifient justement que les secrets sont expurgés.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "portfolio-lab-env-example"
+description = "Interdit toute valeur renseignée dans .env.example"
+# Une variable de .env.example ne doit jamais porter de valeur.
+regex = '''^(TWELVE_DATA_API_KEY|MASSIVE_API_KEY|EODHD_API_KEY|OPENFIGI_API_KEY|SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|MARKET_GATEWAY_SHARED_SECRET)=.+$'''
+path = '''\.env\.example$'''
+
+[allowlist]
+description = "Valeurs fictives des tests d'expurgation de secrets"
+paths = [
+  '''projects/portfolio-lab/apps/market-gateway/src/config\.test\.ts''',
+  '''projects/portfolio-lab/apps/market-gateway/src/logger\.test\.ts''',
+]

@@ -1,0 +1,19 @@
+import { EmptyState } from "@/components/empty-state";
+import { PageHeader } from "@/components/page-header";
+
+export default function AccueilPage(): React.JSX.Element {
+  return (
+    <>
+      <PageHeader title="Accueil" subtitle="Votre patrimoine consolidé en francs suisses." />
+      <EmptyState
+        title="Aucun placement enregistré"
+        lines={[
+          "PortfolioLab ne se connecte à aucune banque et n'importe rien automatiquement : vous ajoutez vous-même chaque placement.",
+          "Une fois une position saisie, l'application récupère les cours disponibles, convertit en CHF et affiche la source ainsi que la fraîcheur de chaque donnée.",
+          "Les comptes — Swissquote, IBKR, BCGE, UBS — sont de simples étiquettes d'organisation, sans aucun identifiant bancaire.",
+        ]}
+        action={{ href: "/ajouter", label: "Ajouter mon premier placement" }}
+      />
+    </>
+  );
+}

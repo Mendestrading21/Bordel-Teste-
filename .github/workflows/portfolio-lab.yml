@@ -1,0 +1,143 @@
+name: PortfolioLab
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "projects/portfolio-lab/**"
+      - ".github/workflows/portfolio-lab.yml"
+  pull_request:
+    paths:
+      - "projects/portfolio-lab/**"
+      - ".github/workflows/portfolio-lab.yml"
+
+# Une seule exécution par branche : un push qui suit annule la précédente.
+concurrency:
+  group: portfolio-lab-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: projects/portfolio-lab
+
+env:
+  # Aucun test de la CI n'appelle une API fournisseur payante.
+  MARKET_DATA_PROVIDER: mock
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  quality:
+    name: Format, lint, types, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: projects/portfolio-lab/pnpm-lock.yaml
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Vérifier le formatage
+        run: pnpm run format:check
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Tests unitaires
+        run: pnpm run test:unit
+
+      - name: Tests d'intégration
+        run: pnpm run test:integration
+
+      - name: Build de production
+        run: pnpm run build
+
+
+  e2e:
+    name: Parcours E2E mobile et desktop
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: projects/portfolio-lab/pnpm-lock.yaml
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Installer Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build de production
+        run: pnpm run build
+
+      - name: Tests E2E
+        run: pnpm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: projects/portfolio-lab/playwright-report/
+          retention-days: 7
+
+  secrets:
+    name: Scan de secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Historique complet : gitleaks analyse aussi les commits, pas
+          # seulement l'arbre de travail.
+          fetch-depth: 0
+
+      - name: Installer gitleaks
+        run: |
+          set -euo pipefail
+          version=8.24.0
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${version}/gitleaks_${version}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Scanner l'historique et l'arbre de travail
+        # `--redact` empêche qu'un secret détecté soit recopié en clair dans
+        # les logs publics de la CI.
+        run: gitleaks detect --no-banner --redact --exit-code 1
+
+      - name: Vérifier qu'aucun fichier .env réel n'est versionné
+        run: |
+          set -euo pipefail
+          tracked=$(git ls-files '*.env' '.env' '.env.*' | grep -v '\.env\.example$' || true)
+          if [ -n "$tracked" ]; then
+            echo "Fichiers .env versionnés interdits :"
+            echo "$tracked"
+            exit 1
+          fi
+          echo "Aucun fichier .env réel versionné."
