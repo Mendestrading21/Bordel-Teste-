@@ -1,0 +1,45 @@
+{
+  "name": "portfolio-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PortfolioLab — PWA privée de suivi patrimonial manuel (actions, ETF, options, fonds, cash) consolidé en CHF.",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.4.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r --sequential run typecheck",
+    "test": "pnpm run test:unit && pnpm run test:integration",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:e2e": "playwright test",
+    "test:watch": "vitest",
+    "build": "pnpm -r --sequential run build",
+    "dev": "pnpm --filter @portfolio-lab/web run dev",
+    "dev:gateway": "pnpm --filter @portfolio-lab/market-gateway run dev",
+    "icons": "node scripts/generate-icons.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@next/eslint-plugin-next": "^16.3.2",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "globals": "^17.11.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^3.0.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "@tailwindcss/oxide"
+    ]
+  }
+}
