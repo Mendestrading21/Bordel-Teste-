@@ -4,7 +4,7 @@ Dernière mise à jour : 23 août 2026
 
 ## Phase
 
-**Lot 09 — Fiabilité, PWA et sécurité**
+**Lot 10 — Release candidate 1.0**
 
 ## État global
 
@@ -41,8 +41,59 @@ Dernière mise à jour : 23 août 2026
 | 06  | Fonds et NAV                                      | terminé, fusionné |
 | 07  | Options                                           | terminé, fusionné |
 | 08  | Dashboard et analyse                              | terminé, fusionné |
-| 09  | Fiabilité, PWA et sécurité                        | terminé           |
-| 10  | Release candidate 1.0                             | à faire           |
+| 09  | Fiabilité, PWA et sécurité                        | terminé, fusionné |
+| 10  | Release candidate 1.0                             | terminé           |
+
+## Lot 10 — livrables vérifiés
+
+- **audit fonctionnel complet** (`docs/audit-fonctionnel.md`) confrontant
+  l'application aux exigences des documents de référence, parcours par parcours
+  et écran par écran ;
+- **modification d'une position** — parcours critique n° 10 de
+  `QUALITY_GATES.md`, dont seule la suppression existait. L'instrument et le
+  compte ne sont volontairement pas modifiables : les changer réécrirait le
+  passé d'une position dont les points d'historique ont été calculés sur le
+  titre d'origine ;
+- cloisonnement de la modification vérifié sur PostgreSQL réel — un tiers ne
+  modifie rien, un anonyme non plus, et la contrainte de quantité non nulle est
+  appliquée par la base et pas seulement par le formulaire ;
+- **référence obsolète corrigée** : l'écran d'ajout promettait la recherche par
+  ISIN « au Lot 04 », un lot livré depuis longtemps — et bloqué. Un test E2E
+  vérifie désormais qu'aucun numéro de lot n'atteint l'utilisateur ;
+- **documentation d'installation et d'exploitation**, procédure iPhone comprise ;
+- **matrice de compatibilité** énumérant explicitement ce qui n'a jamais été
+  exécuté — Safari, Firefox, appareil physique, API réelle, déploiement ;
+- **rapport de release** avec checklist RC 1.0 en 16 points ;
+- **tag proposé, non créé** : `portfolio-lab-v1.0.0-rc.1`.
+
+## Verdict de l'audit
+
+**Release candidate, pas release.** Deux critères manquent :
+
+1. **l'authentification n'est pas implémentée** — machine d'états et détection
+   de configuration seulement. Brancher Supabase Auth demande un compte externe,
+   et écrire le flux sans pouvoir l'exécuter produirait du code qui _paraît_
+   intégré ;
+2. **la validation visuelle par l'utilisateur** n'a pas eu lieu — elle ne peut
+   pas l'être sans lui.
+
+L'application ne doit donc pas être exposée publiquement. Pour un usage local
+et personnel, avec une base PostgreSQL propre, elle est utilisable de bout en
+bout.
+
+## Preuves d'exécution — Lot 10
+
+| Commande                                  | Résultat                               |
+| ----------------------------------------- | -------------------------------------- |
+| `pnpm run format:check`                   | tous les fichiers conformes            |
+| `pnpm run lint`                           | 0 erreur, 0 avertissement              |
+| `pnpm run typecheck`                      | 9 packages, 0 erreur                   |
+| `pnpm run test:unit`                      | 632 tests — verts                      |
+| `pnpm run test:integration`               | 169 tests — verts, sur PostgreSQL réel |
+| `pnpm run build`                          | build de production réussi             |
+| `pnpm run test:e2e` (sans données)        | 144 tests — verts                      |
+| `pnpm run test:e2e` (portefeuille peuplé) | 325 verts, 75 ignorés                  |
+| `pnpm audit --audit-level moderate`       | aucune vulnérabilité connue            |
 
 ## Lot 09 — livrables vérifiés
 
