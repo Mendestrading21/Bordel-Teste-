@@ -9,6 +9,28 @@ describe("loadConfig", () => {
     // Aucun fournisseur réel ne doit être actif par défaut.
     expect(config.provider).toBe("mock");
     expect(config.logLevel).toBe("info");
+    // Sans secret partagé, le canal temps réel refuse toute connexion : c'est
+    // la seule position sûre par défaut.
+    expect(config.sharedSecret).toBeUndefined();
+    expect(config.maxConnectionsPerUser).toBe(5);
+  });
+
+  it("refuse un secret partagé trop court plutôt que de l'accepter", () => {
+    // Un secret court rend le HMAC des jetons attaquable hors ligne.
+    expect(() => loadConfig({ MARKET_GATEWAY_SHARED_SECRET: "court" })).toThrow(ConfigError);
+  });
+
+  it("accepte un secret partagé d'au moins 32 caractères", () => {
+    const secret = "un-secret-partage-de-plus-de-32-caracteres";
+    expect(loadConfig({ MARKET_GATEWAY_SHARED_SECRET: secret }).sharedSecret).toBe(secret);
+  });
+
+  it("borne le nombre de connexions simultanées par utilisateur", () => {
+    // Un nombre illimité permettrait d'épuiser la mémoire avec une identité.
+    expect(() => loadConfig({ MARKET_GATEWAY_MAX_CONNECTIONS_PER_USER: "0" })).toThrow(ConfigError);
+    expect(() => loadConfig({ MARKET_GATEWAY_MAX_CONNECTIONS_PER_USER: "999" })).toThrow(
+      ConfigError,
+    );
   });
 
   it("lit les variables fournies", () => {
@@ -17,7 +39,13 @@ describe("loadConfig", () => {
       MARKET_DATA_PROVIDER: "twelvedata",
       LOG_LEVEL: "debug",
     });
-    expect(config).toEqual({ port: 5000, provider: "twelvedata", logLevel: "debug" });
+    expect(config).toEqual({
+      port: 5000,
+      provider: "twelvedata",
+      logLevel: "debug",
+      sharedSecret: undefined,
+      maxConnectionsPerUser: 5,
+    });
   });
 
   it("refuse un port hors plage", () => {

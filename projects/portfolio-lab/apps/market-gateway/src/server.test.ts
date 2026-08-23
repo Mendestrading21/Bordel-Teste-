@@ -9,18 +9,37 @@ const logger = createLogger("error", () => {});
 
 describe("buildHealthPayload", () => {
   it("annonce l'état sans exposer la configuration détaillée", () => {
-    const payload = buildHealthPayload(config, 12.9);
+    const payload = buildHealthPayload(config, 12.9, 3);
     expect(payload).toEqual({
       status: "ok",
       service: "market-gateway",
       provider: "mock",
       uptimeSeconds: 12,
-      liveChannel: "not-implemented",
+      liveChannel: "disabled",
+      connectedClients: 3,
     });
   });
 
-  it("ne prétend pas qu'un canal live existe au Lot 01", () => {
-    expect(buildHealthPayload(config, 0).liveChannel).toBe("not-implemented");
+  it("annonce le canal désactivé quand aucun secret partagé n'est configuré", () => {
+    // Un canal sans secret accepterait n'importe quel jeton ; l'état doit être
+    // visible sans avoir à lire les journaux.
+    expect(buildHealthPayload(config, 0).liveChannel).toBe("disabled");
+  });
+
+  it("annonce le canal prêt dès qu'un secret est configuré", () => {
+    const withSecret = loadConfig({
+      MARKET_GATEWAY_SHARED_SECRET: "un-secret-partage-de-plus-de-32-caracteres",
+    });
+    expect(buildHealthPayload(withSecret, 0).liveChannel).toBe("ready");
+  });
+
+  it("n'expose ni le secret ni le nom des variables de configuration", () => {
+    const withSecret = loadConfig({
+      MARKET_GATEWAY_SHARED_SECRET: "un-secret-partage-de-plus-de-32-caracteres",
+    });
+    const serialized = JSON.stringify(buildHealthPayload(withSecret, 0));
+    expect(serialized).not.toContain("un-secret-partage");
+    expect(serialized).not.toContain("SHARED_SECRET");
   });
 });
 
