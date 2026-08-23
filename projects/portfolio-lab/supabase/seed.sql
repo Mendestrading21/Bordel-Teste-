@@ -58,6 +58,19 @@ values (
   'PHYSICAL'
 );
 
+-- Détails du fonds fictif : classe de parts, fréquence de publication et
+-- domiciliation, nécessaires pour juger la fraîcheur de sa NAV.
+insert into fund_details (instrument_id, share_class, is_accumulating, nav_frequency, domicile_country)
+values ('d0000000-0000-4000-8000-000000000004', 'P', true, 'DAILY', 'LU');
+
+-- Une seule NAV, datée et fictive. La date est fixe pour que les tests soient
+-- reproductibles ; elle est volontairement un vendredi, cas où le calcul en
+-- jours ouvrés compte.
+insert into fund_nav_history (instrument_id, nav_date, value, currency, provider)
+values
+  ('d0000000-0000-4000-8000-000000000004', '2026-08-21', 104.830000000000, 'CHF', 'fixture'),
+  ('d0000000-0000-4000-8000-000000000004', '2026-08-20', 104.510000000000, 'CHF', 'fixture');
+
 -- -----------------------------------------------------------------------------
 -- Portefeuille, comptes et positions de démonstration
 --

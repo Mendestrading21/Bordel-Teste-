@@ -4,7 +4,7 @@ Dernière mise à jour : 23 août 2026
 
 ## Phase
 
-**Lot 05 — Passerelle temps réel et canal authentifié**
+**Lot 06 — Fonds de placement et NAV**
 
 ## État global
 
@@ -56,6 +56,46 @@ Dernière mise à jour : 23 août 2026
 - `.env.example` documenté, aucun `.env` réel versionné ;
 - CI GitHub : format, lint, typecheck, tests, build, E2E, scan de secrets ;
 - ADR 0001 consignant les choix techniques.
+
+## Lot 06 — livrables vérifiés
+
+- calendrier de publication : fraîcheur calculée en **jours ouvrés**, tolérance
+  dépendant de la fréquence déclarée du fonds, jours fériés fournis par
+  l'appelant et non codés en dur ;
+- état `FUTURE_DATED` distinct : une NAV datée dans le futur est une anomalie de
+  la source, pas une donnée fraîche ;
+- résolution par ISIN exclusive — aucune substitution de classe de parts
+  voisine, ambiguïté remontée à l'utilisateur ;
+- devise contredisant l'ISIN signalée comme `MISMATCH`, jamais acceptée ;
+- migration `0003_fund_metadata.sql` : `fund_details` et `fund_nav_history`,
+  avec date de valeur distincte de l'instant de récupération ;
+- ingestion NAV programmée, l'échec d'un fonds n'interrompant pas les autres ;
+- contrôles stricts : type de prix, devise, valeur positive, horodatage lisible ;
+- écran Fonds affichant NAV, date de valeur, classe de parts, devise, fréquence
+  et explication de l'état en jours ouvrés ;
+- une NAV inexploitable laisse la position **non valorisée**, jamais remplacée
+  par une valeur de repli.
+
+## Preuves d'exécution — Lot 06
+
+| Commande                                  | Résultat                               |
+| ----------------------------------------- | -------------------------------------- |
+| `pnpm run format:check`                   | tous les fichiers conformes            |
+| `pnpm run lint`                           | 0 erreur, 0 avertissement              |
+| `pnpm run typecheck`                      | 8 packages, 0 erreur                   |
+| `pnpm run test:unit`                      | 467 tests — verts                      |
+| `pnpm run test:integration`               | 147 tests — verts, sur PostgreSQL réel |
+| `pnpm run build`                          | build de production réussi             |
+| `pnpm run test:e2e` (sans données)        | 84 tests — verts                       |
+| `pnpm run test:e2e` (portefeuille peuplé) | 192 tests — verts                      |
+
+67 tests portent spécifiquement sur les fonds : calendrier de jours ouvrés,
+week-ends, jours fériés, absence de publication, résolution par ISIN, refus de
+substitution de classe de parts, contrôles d'ingestion.
+
+Un défaut de formulation trouvé et corrigé : l'écran affichait « Publiée
+aujourd'hui » pour une NAV du vendredi lue le dimanche — zéro jour ouvré écoulé,
+mais pas une publication du jour.
 
 ## Lot 05 — livrables vérifiés
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { ASSET_TYPE_LABEL, type AssetType, type CurrencyCode } from "@portfolio-lab/domain";
 import { allocate, type AllocationSlice } from "@portfolio-lab/portfolio-engine";
@@ -141,6 +142,19 @@ export default async function AnalysePage(): Promise<React.JSX.Element> {
         labels={new Map()}
         currency={currency}
       />
+
+      <section className="mt-4 rounded-token-lg border border-subtle bg-surface p-5">
+        <h2 className="mb-1 text-base font-medium text-primary">Fonds de placement</h2>
+        <p className="mb-3 text-sm text-secondary">
+          Les fonds sont valorisés par leur dernière NAV publiée, avec sa date et sa fréquence.
+        </p>
+        <Link
+          href="/fonds"
+          className="inline-flex min-h-[var(--pl-touch-target)] items-center text-sm text-copper hover:underline"
+        >
+          Voir le détail des fonds →
+        </Link>
+      </section>
 
       <p className="mt-4 text-xs leading-relaxed text-secondary">
         Les parts sont calculées sur l&apos;exposition brute, en valeurs absolues. L&apos;historique

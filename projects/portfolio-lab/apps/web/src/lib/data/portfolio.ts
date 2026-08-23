@@ -18,6 +18,7 @@ import {
   type PortfolioValuation,
 } from "@portfolio-lab/portfolio-engine";
 import { toDecimalString, type CurrencyCode, type DecimalString } from "@portfolio-lab/domain";
+import { presentNav, type NavFrequency } from "@portfolio-lab/market-data";
 
 import demoMarks from "../../../../../tests/fixtures/demo-marks.json" with { type: "json" };
 
@@ -182,6 +183,69 @@ export async function loadPortfolioView(): Promise<PortfolioView> {
     }));
 
     const fixture = demoFixture();
+
+    /*
+     * Les fonds sont valorisés par la NAV réellement stockée, jamais par la
+     * fixture générale. Une NAV a une date de valeur et un statut de fraîcheur
+     * propres : les remplacer par un cours de fixture ferait disparaître
+     * précisément l'information qui distingue un fonds d'un titre coté.
+     */
+    const navMarks = new Map(fixture.marks);
+    const { rows: navRows } = await client.query<{
+      instrument_id: string;
+      nav_date: string;
+      value: string;
+      currency: string;
+      provider: string;
+      nav_frequency: string | null;
+    }>(
+      `select distinct on (h.instrument_id)
+              h.instrument_id,
+              h.nav_date::text as nav_date,
+              h.value::text    as value,
+              h.currency,
+              h.provider,
+              fd.nav_frequency::text as nav_frequency
+       from fund_nav_history h
+       left join fund_details fd on fd.instrument_id = h.instrument_id
+       order by h.instrument_id, h.nav_date desc`,
+    );
+
+    const now = new Date();
+    for (const row of navRows) {
+      const presentation = presentNav(
+        {
+          instrumentId: row.instrument_id,
+          isin: "",
+          value: toDecimalString(row.value),
+          currency: row.currency as CurrencyCode,
+          navDate: row.nav_date,
+          provider: row.provider,
+          retrievedAt: now.toISOString(),
+          frequency: (row.nav_frequency ?? "UNKNOWN") as NavFrequency,
+          shareClass: null,
+        },
+        now,
+      );
+
+      // Une NAV inexploitable n'est pas remplacée par une valeur de repli : la
+      // position apparaîtra comme non valorisée, ce qui est l'état réel.
+      if (presentation.freshness === "UNAVAILABLE") {
+        navMarks.delete(row.instrument_id);
+        continue;
+      }
+
+      navMarks.set(row.instrument_id, {
+        price: toDecimalString(row.value),
+        currency: row.currency as CurrencyCode,
+        priceType: "NAV",
+        freshness: presentation.freshness,
+        // La date de valeur de la NAV, pas l'instant de lecture.
+        asOf: `${row.nav_date}T00:00:00.000Z`,
+        provider: row.provider,
+      });
+    }
+
     const inputs: PositionInput[] = positions.map((position) => ({
       positionId: position.positionId,
       accountId: position.accountId,
@@ -200,7 +264,7 @@ export async function loadPortfolioView(): Promise<PortfolioView> {
       positions,
       valuation: valuePortfolio(
         inputs,
-        fixture.marks,
+        navMarks,
         fixture.fx,
         portfolio.base_currency as CurrencyCode,
       ),
