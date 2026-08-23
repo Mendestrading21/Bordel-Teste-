@@ -4,39 +4,110 @@ Dernière mise à jour : 23 août 2026
 
 ## Phase
 
-**Lot 07 — Options**
+**Lot 08 — Dashboard et analyse**
 
 ## État global
 
-| Sujet                          | État                                     |
-| ------------------------------ | ---------------------------------------- |
-| Produit défini                 | oui                                      |
-| Skill Claude Code              | fusionné dans `main` (PR #1)             |
-| Architecture documentée        | oui                                      |
-| Workspace exécutable           | oui                                      |
-| PWA installable                | coquille en place, installable           |
-| Base de données                | non commencée (Lot 02)                   |
-| Authentification               | non commencée (Lot 02)                   |
-| Fournisseur de marché choisi   | non, volontairement (décision au Lot 04) |
-| Matrice de couverture exécutée | non (Lot 04)                             |
-| Clé API réelle en dépôt        | aucune, par conception                   |
-| Déploiement                    | aucun                                    |
+| Sujet                            | État                                            |
+| -------------------------------- | ----------------------------------------------- |
+| Produit défini                   | oui                                             |
+| Skill Claude Code                | fusionné dans `main` (PR #1)                    |
+| Architecture documentée          | oui, 8 ADR                                      |
+| Workspace exécutable             | oui                                             |
+| PWA installable                  | oui                                             |
+| Base de données                  | PostgreSQL, 3 migrations, RLS activée et forcée |
+| Authentification                 | oui (Lot 02)                                    |
+| Moteur de valorisation           | oui, décimal exact, réconciliation vérifiée     |
+| Historique du patrimoine         | oui, points mesurés — jamais reconstitués       |
+| Fournisseur de marché choisi     | **non** — bloqué, voir « Blocage majeur »       |
+| Matrice de couverture exécutée   | oui, 19 instruments, tous `NOT_RUN`             |
+| Cours réels                      | aucun ; fixtures et fournisseur simulé          |
+| Clé API réelle en dépôt          | aucune, par conception                          |
+| Donnée financière réelle en base | aucune, par conception                          |
+| Déploiement                      | aucun                                           |
 
 ## Avancement par lot
 
 | Lot | Objet                                             | État              |
 | --- | ------------------------------------------------- | ----------------- |
 | 00  | Spécification et skill                            | terminé, fusionné |
-| 01  | Fondation workspace, PWA, design, CI              | terminé           |
-| 02  | Auth, PostgreSQL, RLS                             | à faire           |
-| 03  | Comptes et positions manuelles                    | à faire           |
-| 04  | Résolution d'instruments et matrice de couverture | à faire           |
-| 05  | Actions, ETF et FX live                           | à faire           |
-| 06  | Fonds et NAV                                      | à faire           |
-| 07  | Options                                           | à faire           |
-| 08  | Dashboard et analyse                              | à faire           |
+| 01  | Fondation workspace, PWA, design, CI              | terminé, fusionné |
+| 02  | Auth, PostgreSQL, RLS                             | terminé, fusionné |
+| 03  | Comptes et positions manuelles                    | terminé, fusionné |
+| 04  | Résolution d'instruments et matrice de couverture | terminé, fusionné |
+| 05  | Actions, ETF et FX live                           | terminé, fusionné |
+| 06  | Fonds et NAV                                      | terminé, fusionné |
+| 07  | Options                                           | terminé, fusionné |
+| 08  | Dashboard et analyse                              | terminé           |
 | 09  | Fiabilité, PWA et sécurité                        | à faire           |
 | 10  | Release candidate 1.0                             | à faire           |
+
+## Lot 08 — livrables vérifiés
+
+- total CHF, P&L latent et journalier déjà livrés au Lot 03, désormais complétés
+  par le **rendement calculé en décimal** : l'accueil passait par `Number`,
+  réintroduisant l'erreur de flottant sur le chiffre le plus regardé de l'écran ;
+- allocations par classe d'actifs, compte et devise (déjà livrées, conservées) ;
+- **historique quotidien** dérivé des snapshots stockés : plusieurs points par
+  jour sont prévus par `DATA_MODEL.md`, le dernier de chaque journée est retenu ;
+- frontière des journées en `Europe/Zurich`, pas en UTC — un point pris à
+  00 h 30 à Zurich appartient au bon jour ;
+- **série non comparable jamais tracée** : versions du moteur ou devises de
+  consolidation mêlées, l'écran explique au lieu d'afficher une courbe fausse ;
+- axe horizontal **proportionnel aux dates**, repère visible par mesure réelle
+  tant que la série reste courte ;
+- courbe doublée d'un résumé textuel chiffré et d'un tableau de valeurs exactes ;
+- **contribution au P&L** triée par ampleur, gains et pertes confondus ; part
+  `null` — jamais `0 %` — quand le P&L total est nul ;
+- **exposition des options par sous-jacent**, valeur de marché et notionnel
+  rendus distinctement, sur le multiplicateur réellement enregistré ;
+- **réconciliation affichée**, en égalité décimale stricte, sans tolérance
+  d'arrondi ;
+- **empreinte des composants** (`components_hash`) couvrant valeurs, taux,
+  horodatages, fournisseurs, fraîcheurs et positions non valorisées ;
+- enregistrement d'un point sur action explicite, jamais sur simple affichage ;
+- aucun point enregistré quand aucune position n'est valorisable — un patrimoine
+  de zéro creuserait la courbe là où il n'y a qu'une absence de cours ;
+- `snapshotRepository` : lecture cloisonnée par RLS, écriture idempotente au même
+  instant, horodatage fourni par l'appelant et jamais lu d'une horloge interne ;
+- états vides distincts : aucun point, un seul point, série non comparable ;
+- ADR 0008 consignant ces décisions.
+
+## Preuves d'exécution — Lot 08
+
+| Commande                                  | Résultat                                                                      |
+| ----------------------------------------- | ----------------------------------------------------------------------------- |
+| `pnpm run format:check`                   | tous les fichiers conformes                                                   |
+| `pnpm run lint`                           | 0 erreur, 0 avertissement                                                     |
+| `pnpm run typecheck`                      | 8 packages, 0 erreur                                                          |
+| `pnpm run test:unit`                      | 590 tests — verts                                                             |
+| `pnpm run test:integration`               | 158 tests — verts, sur PostgreSQL réel                                        |
+| `pnpm run build`                          | build de production réussi                                                    |
+| `pnpm run test:e2e` (sans données)        | 84 tests — verts                                                              |
+| `pnpm run test:e2e` (portefeuille peuplé) | 276 verts, 28 ignorés (parcours de session, sans objet en mode démonstration) |
+
+61 tests portent spécifiquement sur ce lot : contributions au P&L, exposition
+notionnelle, réduction de l'historique quotidien, comparabilité des séries,
+empreinte des composants, réconciliation, cloisonnement RLS des snapshots.
+
+Deux assertions ont été **vérifiées par mutation**, pour prouver qu'elles ne
+sont pas vides : falsifier un total fait échouer la réconciliation, et élargir
+le tableau des options fait échouer le contrôle de troncature (324 px masqués
+détectés).
+
+Trois défauts trouvés et corrigés pendant le lot :
+
+1. **le notionnel était tronqué** à « CHF 17'800.0 » sur un écran de 390 px — un
+   montant faux, pas un détail de mise en page. La devise est passée dans
+   l'en-tête du tableau ; un contrôle E2E compare désormais la largeur de
+   défilement du conteneur, le seul signal qu'une assertion sur le texte du DOM
+   ne verrait pas ;
+2. **les mois s'affichaient en allemand** (« Aug. ») : `NUMERIC_LOCALE` vaut
+   `de-CH`, bon choix pour les nombres suisses mais pas pour les libellés d'une
+   interface française. Les dates suivent maintenant `fr-CH` ;
+3. **la courbe espaçait les points régulièrement**, faisant ressembler un trou de
+   trois mois à un intervalle d'un jour. L'axe est devenu proportionnel aux
+   dates.
 
 ## Lot 01 — livrables vérifiés
 
