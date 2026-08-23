@@ -63,6 +63,36 @@ test.describe("dégradation hors ligne", () => {
     await page.reload();
     await page.evaluate(() => navigator.serviceWorker.ready);
 
+    /*
+     * Attendre que **tous** les scripts de la page soient en cache.
+     *
+     * Sans cette attente, le test court après le service worker : la page peut
+     * être en cache avant ses chunks. La première version de ce test passait
+     * en local et échouait en CI sur les quatre gabarits, pour cette seule
+     * raison — la page revenait du cache sans son JavaScript, donc sans
+     * bandeau.
+     *
+     * On attend donc la précondition réelle du hors ligne — « l'application a
+     * été utilisée en ligne au moins une fois » — au lieu de la supposer.
+     */
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const scripts = [...document.querySelectorAll("script[src]")].map(
+              (node) => (node as HTMLScriptElement).src,
+            );
+            for (const src of scripts) {
+              if ((await caches.match(src)) === undefined) {
+                return false;
+              }
+            }
+            return scripts.length > 0;
+          }),
+        { timeout: 15_000, message: "les scripts de la page ne sont pas tous en cache" },
+      )
+      .toBe(true);
+
     await context.setOffline(true);
     await page.reload();
 

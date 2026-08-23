@@ -96,7 +96,7 @@ Dernière mise à jour : 23 août 2026
 Les 69 ignorés sont les parcours de session, sans objet en mode démonstration,
 et ceux qui dépendent du service worker — que `next dev` n'enregistre pas.
 
-## Trois défauts trouvés pendant le Lot 09
+## Quatre défauts trouvés pendant le Lot 09
 
 1. **Aucun composant client n'était hydraté en développement.** La politique de
    sécurité du contenu interdisait `'unsafe-eval'`, dont `next dev` a besoin
@@ -115,7 +115,18 @@ et ceux qui dépendent du service worker — que `next dev` n'enregistre pas.
    configuration du serveur, en vérifiant son secret partagé avant
    d'authentifier.
 
-Un quatrième point, découvert en écrivant les tests : un contrôle de
+4. **Une page pouvait être servie hors ligne sans son JavaScript**, donc sans
+   le bandeau qui annonce son âge — précisément ce que ce bandeau existe pour
+   empêcher. Le navigateur télécharge les chunks pendant le _premier_
+   chargement, avant que le service worker ne prenne le contrôle, puis les
+   ressort de son propre cache HTTP sans jamais repasser par lui : ils
+   n'atteignaient donc jamais le cache du service worker. Celui-ci charge
+   désormais explicitement les fichiers référencés par chaque page servie en
+   ligne. **Trouvé par la CI**, où le test échouait sur les quatre gabarits
+   alors qu'il passait en local, et confirmé par mutation — sans ce
+   réchauffement, les scripts sont toujours absents après quinze secondes.
+
+Un cinquième point, découvert en écrivant les tests : un contrôle de
 débordement au niveau de la page ne voit rien d'un tableau coupé dans un
 conteneur défilant, et mes premiers tests d'export saturaient ma propre limite
 de débit — la limite fonctionnait, les tests étaient faux.

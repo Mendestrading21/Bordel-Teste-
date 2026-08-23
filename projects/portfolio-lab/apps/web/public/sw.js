@@ -79,6 +79,46 @@ async function trim(cacheName, maxEntries) {
  * La réponse réseau est recopiée dans le cache **avant** d'être rendue, pour
  * que la prochaine coupure dispose de la version la plus récente.
  */
+/**
+ * Met en cache les fichiers construits référencés par une page.
+ *
+ * Sans cela, une page peut être servie hors ligne **sans son JavaScript** : le
+ * HTML est en cache, les chunks ne le sont pas encore. La page s'affiche alors
+ * correctement — le rendu serveur suffit — mais aucun composant client n'est
+ * hydraté, et le bandeau « hors ligne » n'apparaît jamais.
+ *
+ * L'utilisateur lirait donc des chiffres datés sans le moindre avertissement :
+ * exactement ce que ce bandeau existe pour empêcher.
+ *
+ * Compter sur `handleAsset` ne suffit pas, et c'est contre-intuitif : le
+ * navigateur télécharge les chunks pendant le **premier** chargement, avant que
+ * le service worker ne prenne le contrôle ; aux chargements suivants il les
+ * ressort de son propre cache HTTP sans jamais repasser par lui. Ils
+ * n'atteignent donc jamais le cache du service worker. Vérifié par mutation :
+ * sans ce réchauffement explicite, ils sont toujours absents après quinze
+ * secondes.
+ */
+async function warmReferencedAssets(html) {
+  const cache = await caches.open(ASSET_CACHE);
+  const urls = new Set();
+
+  for (const match of html.matchAll(/["'](\/_next\/static\/[^"']+)["']/g)) {
+    urls.add(match[1]);
+  }
+
+  await Promise.allSettled(
+    [...urls].map(async (url) => {
+      if (await cache.match(url)) {
+        return;
+      }
+      const response = await fetch(url);
+      if (response.ok) {
+        await cache.put(url, response);
+      }
+    }),
+  );
+}
+
 async function handleNavigation(request) {
   try {
     const response = await fetch(request);
@@ -87,8 +127,12 @@ async function handleNavigation(request) {
     // une erreur servie plus tard depuis le cache induirait en erreur.
     if (response.ok && response.type === "basic") {
       const cache = await caches.open(PAGE_CACHE);
+      const copy = response.clone();
       await cache.put(request, response.clone());
       void trim(PAGE_CACHE, MAX_CACHED_PAGES);
+      // Volontairement non attendu : la page ne doit pas attendre que ses
+      // chunks soient recopiés pour s'afficher.
+      void copy.text().then((html) => warmReferencedAssets(html));
     }
 
     return response;
@@ -120,16 +164,28 @@ async function handleAsset(request) {
   const cache = await caches.open(ASSET_CACHE);
   const cached = await cache.match(request);
 
-  const network = fetch(request)
-    .then((response) => {
-      if (response.ok) {
-        void cache.put(request, response.clone());
-      }
-      return response;
-    })
-    .catch(() => cached);
+  if (cached) {
+    // Révalidation en arrière-plan : le fichier est empreint, son contenu ne
+    // change pas, mais la copie garde le cache vivant.
+    void fetch(request)
+      .then((response) => (response.ok ? cache.put(request, response.clone()) : undefined))
+      .catch(() => undefined);
+    return cached;
+  }
 
-  return cached ?? network;
+  const response = await fetch(request);
+  if (response.ok) {
+    /*
+     * Attendu, contrairement à la révalidation ci-dessus.
+     *
+     * Rendre la réponse avant la fin de l'écriture laisse une fenêtre pendant
+     * laquelle le fichier a été servi mais n'est pas en cache. Une coupure
+     * réseau dans cet intervalle produit une page hors ligne sans JavaScript,
+     * donc sans bandeau d'avertissement.
+     */
+    await cache.put(request, response.clone());
+  }
+  return response;
 }
 
 self.addEventListener("fetch", (event) => {
