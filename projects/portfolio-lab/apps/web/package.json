@@ -7,10 +7,12 @@
     "dev": "next dev --port 3100",
     "build": "next build",
     "start": "next start --port 3100",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "next typegen && tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@portfolio-lab/database": "workspace:*",
     "@portfolio-lab/domain": "workspace:*",
+    "@portfolio-lab/portfolio-engine": "workspace:*",
     "@portfolio-lab/ui": "workspace:*",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
@@ -18,6 +20,7 @@
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
     "tailwindcss": "^4.0.0",
     "zod": "^3.24.1"
   },

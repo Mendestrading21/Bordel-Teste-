@@ -51,10 +51,31 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   // Les packages du workspace sont publiés en TypeScript source, pas compilés.
-  transpilePackages: ["@portfolio-lab/domain", "@portfolio-lab/ui"],
+  transpilePackages: [
+    "@portfolio-lab/domain",
+    "@portfolio-lab/ui",
+    "@portfolio-lab/database",
+    "@portfolio-lab/portfolio-engine",
+  ],
   typedRoutes: true,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+
+  /*
+   * Les packages du workspace importent avec l'extension `.js`, exigée par
+   * `verbatimModuleSyntax` pour produire de l'ESM valide. Webpack doit donc
+   * savoir qu'un spécificateur `.js` peut être servi par un fichier `.ts`.
+   *
+   * Sans cet alias, `import "./errors.js"` depuis un package TypeScript source
+   * échoue à la compilation de l'application.
+   */
+  webpack(config) {
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      ".js": [".ts", ".tsx", ".js"],
+    };
+    return config;
   },
 };
 

@@ -68,6 +68,34 @@ export function formatPercent(
   }).format(asNumber);
 }
 
+/**
+ * Formate une quantité pour l'affichage.
+ *
+ * PostgreSQL renvoie `numeric(30, 12)` avec ses douze décimales : « 2 » revient
+ * en « 2.000000000000 ». Les zéros de queue sont retirés — ils n'ajoutent
+ * aucune information et rendent une quantité entière illisible — mais la
+ * précision réelle est conservée quand elle existe : une fraction de fonds
+ * comme « 150.75 » reste intacte.
+ */
+export function formatQuantity(
+  value: DecimalString,
+  locale: string = NUMERIC_LOCALE,
+  maximumFractionDigits = 12,
+): string {
+  const parsed = decimal(value);
+  // `toFixed()` sans argument évite la notation exponentielle ; le nettoyage
+  // porte ensuite sur la représentation positionnelle.
+  const positional = parsed.toFixed();
+  const decimals = positional.includes(".")
+    ? (positional.split(".")[1]?.replace(/0+$/, "").length ?? 0)
+    : 0;
+
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: Math.min(decimals, maximumFractionDigits),
+  }).format(Number(positional));
+}
+
 /** Signe d'une décimale, pour choisir un token de couleur. */
 export function signOf(value: DecimalString): "positive" | "negative" | "neutral" {
   const parsed = decimal(value);

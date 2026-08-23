@@ -29,6 +29,7 @@
     "@playwright/test": "^1.62.1",
     "@portfolio-lab/database": "workspace:*",
     "@portfolio-lab/domain": "workspace:*",
+    "@portfolio-lab/portfolio-engine": "workspace:*",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.23.1",
     "eslint": "^9.18.0",

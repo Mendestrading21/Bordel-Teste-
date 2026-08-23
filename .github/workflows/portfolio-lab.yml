@@ -95,7 +95,27 @@ jobs:
   e2e:
     name: Parcours E2E mobile et desktop
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+
+    # Les parcours avec données ont besoin d'un portefeuille peuplé, donc du
+    # seed et d'une vraie base.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: portfolio_lab_ci
+          POSTGRES_DB: portfolio_lab_demo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:portfolio_lab_ci@localhost:5432/portfolio_lab_demo
+
     steps:
       - uses: actions/checkout@v4
 
@@ -118,7 +138,26 @@ jobs:
       - name: Build de production
         run: pnpm run build
 
-      - name: Tests E2E
+      - name: Installer le client psql
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client
+
+      - name: Préparer la base de démonstration
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f supabase/migrations/0001_initial_schema.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f supabase/migrations/0002_row_level_security.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f supabase/seed.sql
+
+      - name: Tests E2E — application sans données
+        # Build de production : c'est là que le service worker, les en-têtes de
+        # sécurité et le manifeste se comportent réellement.
+        run: pnpm run test:e2e
+
+      - name: Tests E2E — parcours avec portefeuille peuplé
+        # Le mode démonstration est refusé en production ; ces parcours tournent
+        # donc sur le serveur de développement.
+        env:
+          PORTFOLIO_LAB_DEMO_MODE: "true"
         run: pnpm run test:e2e
 
       - uses: actions/upload-artifact@v4

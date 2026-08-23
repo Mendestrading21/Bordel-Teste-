@@ -4,7 +4,7 @@ Dernière mise à jour : 23 août 2026
 
 ## Phase
 
-**Lot 02 — Authentification et base de données**
+**Lot 03 — Comptes, positions et valorisation**
 
 ## État global
 
@@ -56,6 +56,47 @@ Dernière mise à jour : 23 août 2026
 - `.env.example` documenté, aucun `.env` réel versionné ;
 - CI GitHub : format, lint, typecheck, tests, build, E2E, scan de secrets ;
 - ADR 0001 consignant les choix techniques.
+
+## Lot 03 — livrables vérifiés
+
+- `packages/portfolio-engine` : moteur pur, sans entrée/sortie ni horloge
+  implicite ; valorisation, P&L latent, variation du jour, allocation ;
+- une donnée manquante produit une **raison** et jamais un zéro ; les positions
+  non valorisées sont exclues du total et annoncées à l'écran ;
+- chargeur de fixtures validé, refusant toute donnée fictive marquée `LIVE` ;
+- mode démonstration verrouillé : littéral exact requis, exception levée si
+  `NODE_ENV=production`, bandeau permanent non masquable ;
+- CRUD comptes et positions par actions serveur, identité revalidée côté serveur
+  à chaque action ;
+- écrans : tableau de bord, liste des positions, fiche détaillée avec provenance
+  complète, formulaire d'ajout, analyse, réglages ;
+- badges de fraîcheur sur chaque ligne, méthode de valorisation, fournisseur,
+  horodatage, taux FX appliqué et version du moteur visibles.
+
+## Preuves d'exécution — Lot 03
+
+Node 22.22.2 / pnpm 10.4.1 / PostgreSQL 16.13 :
+
+| Commande                                  | Résultat                               |
+| ----------------------------------------- | -------------------------------------- |
+| `pnpm run format:check`                   | tous les fichiers conformes            |
+| `pnpm run lint`                           | 0 erreur, 0 avertissement              |
+| `pnpm run typecheck`                      | 8 packages, 0 erreur                   |
+| `pnpm run test:unit`                      | 230 tests — verts                      |
+| `pnpm run test:integration`               | 114 tests — verts, sur PostgreSQL réel |
+| `pnpm run build`                          | 7 routes, dont 6 dynamiques            |
+| `pnpm run test:e2e` (sans données)        | 84 tests sur 4 tailles — verts         |
+| `pnpm run test:e2e` (portefeuille peuplé) | 140 tests sur 4 tailles — verts        |
+
+Total du portefeuille de démonstration : **32 343.8925 CHF**, vérifié à la main
+dans `tests/integration/demo-valuation.test.ts` et à l'écran.
+
+Deux défauts trouvés par les tests pendant ce lot et corrigés :
+
+1. une conversion de devise identité dégradait la fraîcheur d'un fonds NAV en
+   « Manuel » ;
+2. sans session mais avec une base, l'accueil affichait « aucun placement
+   enregistré » au lieu de signaler l'absence d'authentification.
 
 ## Lot 02 — livrables vérifiés
 

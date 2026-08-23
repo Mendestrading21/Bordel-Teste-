@@ -1,0 +1,81 @@
+{
+  "$comment": [
+    "Cours FICTIFS pour les instruments du seed de démonstration.",
+    "Aucune de ces valeurs ne provient d'un marché réel.",
+    "freshness vaut MANUAL sur toutes les lignes : c'est la seule valeur honnête",
+    "pour une donnée saisie à la main, et l'interface l'affichera comme telle.",
+    "asOf est une date fixe pour que les tests soient reproductibles."
+  ],
+  "generatedFor": "seed de démonstration PortfolioLab",
+  "asOf": "2026-08-22T16:00:00.000Z",
+  "marks": [
+    {
+      "instrumentId": "d0000000-0000-4000-8000-000000000001",
+      "label": "Démo Industrie SA",
+      "price": "148.60",
+      "previousClose": "147.20",
+      "currency": "CHF",
+      "priceType": "MANUAL",
+      "freshness": "MANUAL"
+    },
+    {
+      "instrumentId": "d0000000-0000-4000-8000-000000000002",
+      "label": "Démo Technologies Inc (fictif)",
+      "price": "91.40",
+      "previousClose": "90.05",
+      "currency": "USD",
+      "priceType": "MANUAL",
+      "freshness": "MANUAL"
+    },
+    {
+      "instrumentId": "d0000000-0000-4000-8000-000000000003",
+      "label": "Démo Monde ETF (fictif)",
+      "price": "324.75",
+      "previousClose": "323.10",
+      "currency": "USD",
+      "priceType": "MANUAL",
+      "freshness": "MANUAL"
+    },
+    {
+      "instrumentId": "d0000000-0000-4000-8000-000000000004",
+      "label": "Démo Fonds Équilibré P CHF (fictif)",
+      "price": "104.83",
+      "currency": "CHF",
+      "priceType": "NAV",
+      "freshness": "NAV",
+      "$comment": "Un fonds n'a pas de clôture intraday : aucune previousClose, et le statut reste NAV."
+    },
+    {
+      "instrumentId": "d0000000-0000-4000-8000-000000000005",
+      "label": "Liquidités CHF",
+      "price": "1",
+      "currency": "CHF",
+      "priceType": "MANUAL",
+      "freshness": "MANUAL"
+    },
+    {
+      "instrumentId": "d0000000-0000-4000-8000-000000000006",
+      "label": "Démo Technologies CALL 100 (fictif)",
+      "price": "6.20",
+      "previousClose": "5.95",
+      "currency": "USD",
+      "priceType": "MID",
+      "freshness": "MANUAL",
+      "$comment": "Multiplicateur 100 stocké sur le contrat, jamais supposé par le moteur."
+    }
+  ],
+  "fxRates": [
+    {
+      "from": "USD",
+      "to": "CHF",
+      "rate": "0.8900",
+      "freshness": "MANUAL"
+    },
+    {
+      "from": "EUR",
+      "to": "CHF",
+      "rate": "0.9400",
+      "freshness": "MANUAL"
+    }
+  ]
+}
