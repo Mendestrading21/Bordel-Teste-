@@ -55,38 +55,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
   return result.data;
 }
 
-/**
- * Noms des variables d'environnement portant un secret.
+/*
+ * Expurgation partagée.
  *
- * Utilisé par `redactSecrets` pour garantir qu'aucune clé ne peut atterrir dans
- * un log, une trace ou une réponse d'erreur.
+ * La liste des secrets et la fonction d'expurgation vivaient ici, dupliquées de
+ * ce que l'application web aurait dû faire de son côté. Une liste de secrets
+ * maintenue à deux endroits finit par diverger, et c'est l'endroit oublié qui
+ * laisse fuir la clé. Elles vivent désormais dans `@portfolio-lab/security` ;
+ * la ré-exportation garde les importations existantes valides.
  */
-export const SECRET_ENV_KEYS = [
-  "TWELVE_DATA_API_KEY",
-  "MASSIVE_API_KEY",
-  "EODHD_API_KEY",
-  "OPENFIGI_API_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "SUPABASE_ANON_KEY",
-  "DATABASE_URL",
-  "MARKET_GATEWAY_SHARED_SECRET",
-] as const;
-
-/**
- * Remplace toute valeur de secret présente dans un texte par `[expurgé]`.
- *
- * On expurge par *valeur* et pas seulement par nom de champ : une clé recopiée
- * dans le corps d'un message d'erreur fournisseur ne porte aucun nom.
- */
-export function redactSecrets(text: string, env: NodeJS.ProcessEnv = process.env): string {
-  let output = text;
-  for (const key of SECRET_ENV_KEYS) {
-    const value = env[key];
-    // Les valeurs très courtes sont ignorées : elles produiraient des
-    // remplacements parasites dans du texte légitime.
-    if (typeof value === "string" && value.length >= 8) {
-      output = output.split(value).join("[expurgé]");
-    }
-  }
-  return output;
-}
+export { redactSecrets, SECRET_ENV_KEYS } from "@portfolio-lab/security";
