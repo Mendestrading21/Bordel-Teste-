@@ -14,6 +14,14 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
  */
 const executablePath = process.env["PLAYWRIGHT_CHROMIUM_EXECUTABLE"];
 
+/**
+ * `true` quand la suite doit couvrir les parcours avec données.
+ *
+ * Ces parcours ont besoin d'un portefeuille peuplé, donc du mode démonstration
+ * et d'une base contenant le seed.
+ */
+const demoMode = process.env["PORTFOLIO_LAB_DEMO_MODE"] === "true";
+
 const chromium = {
   ...devices["Desktop Chrome"],
   ...(executablePath ? { launchOptions: { executablePath } } : {}),
@@ -28,6 +36,9 @@ const chromium = {
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Les parcours avec données ne sont collectés que lorsque le mode
+  // démonstration est actif ; sinon ils échoueraient sur un portefeuille vide.
+  testIgnore: demoMode ? [] : ["**/portfolio.spec.ts"],
   fullyParallel: true,
   forbidOnly: Boolean(process.env["CI"]),
   retries: process.env["CI"] ? 1 : 0,
@@ -58,9 +69,26 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm --filter @portfolio-lab/web run start",
+    /*
+     * Le mode démonstration est volontairement refusé en production — il
+     * contournerait l'authentification. `next start` force
+     * `NODE_ENV=production`, donc les parcours de démonstration tournent sur le
+     * serveur de développement, seule configuration où ce mode est autorisé.
+     *
+     * Les autres parcours tournent sur le build de production : c'est là que le
+     * service worker, les en-têtes et le manifeste se comportent réellement.
+     */
+    command: demoMode
+      ? "pnpm --filter @portfolio-lab/web run dev"
+      : "pnpm --filter @portfolio-lab/web run start",
     url: BASE_URL,
     reuseExistingServer: !process.env["CI"],
-    timeout: 120_000,
+    timeout: 180_000,
+    env: {
+      ...(demoMode ? { PORTFOLIO_LAB_DEMO_MODE: "true" } : {}),
+      ...(process.env["DATABASE_URL"] === undefined
+        ? {}
+        : { DATABASE_URL: process.env["DATABASE_URL"] }),
+    },
   },
 });
