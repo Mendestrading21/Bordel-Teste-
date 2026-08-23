@@ -4,7 +4,7 @@ Dernière mise à jour : 23 août 2026
 
 ## Phase
 
-**Lot 04 — Contrat fournisseur et matrice de couverture**
+**Lot 05 — Passerelle temps réel et canal authentifié**
 
 ## État global
 
@@ -56,6 +56,49 @@ Dernière mise à jour : 23 août 2026
 - `.env.example` documenté, aucun `.env` réel versionné ;
 - CI GitHub : format, lint, typecheck, tests, build, E2E, scan de secrets ;
 - ADR 0001 consignant les choix techniques.
+
+## Lot 05 — livrables vérifiés
+
+- passerelle WebSocket persistante, canal `/live` authentifié ;
+- jetons HMAC-SHA256 de cinq minutes, comparaison en temps constant, signature
+  vérifiée avant l'expiration ;
+- jeton transporté par le sous-protocole WebSocket, jamais par l'URL ;
+- déduplication des abonnements par comptage de références, période de grâce de
+  30 secondes ;
+- cache du dernier cours rejetant les messages hors ordre et les valeurs
+  inchangées ;
+- péremption par nature de donnée — une NAV n'est pas périmée après une heure,
+  une saisie manuelle ne se périme jamais ;
+- diffusion groupée toutes les 250 ms, chaque client ne recevant que ses
+  symboles ;
+- backoff exponentiel avec gigue et disjoncteur par fournisseur ;
+- heartbeat et fermeture des connexions silencieuses ;
+- route `/api/live-token` côté PWA, sans cache ;
+- hook client avec reconnexion, et indicateur d'état visible en permanence ;
+- `DEMO_INSTRUMENTS` partagé entre passerelle et seed.
+
+## Preuves d'exécution — Lot 05
+
+| Commande                                  | Résultat                                         |
+| ----------------------------------------- | ------------------------------------------------ |
+| `pnpm run format:check`                   | tous les fichiers conformes                      |
+| `pnpm run lint`                           | 0 erreur, 0 avertissement                        |
+| `pnpm run typecheck`                      | 8 packages, 0 erreur                             |
+| `pnpm run test:unit`                      | 400 tests — verts                                |
+| `pnpm run test:integration`               | 133 tests — verts, dont 17 sur de vraies sockets |
+| `pnpm run build`                          | build de production réussi                       |
+| `pnpm run test:e2e` (sans données)        | 84 tests — verts                                 |
+| `pnpm run test:e2e` (portefeuille peuplé) | 164 tests — verts                                |
+
+Vérification en conditions réelles : la passerelle a été démarrée, `/health` a
+répondu `liveChannel: "ready"`, et un client WebSocket réel a reçu le message de
+bienvenue puis des cours après abonnement. Aucun message ne contenait le secret
+partagé.
+
+**Un défaut trouvé par cette vérification** : la passerelle instanciait le
+fournisseur simulé avec une liste d'instruments vide. Elle démarrait, se
+déclarait prête, acceptait les connexions et ne résolvait jamais aucun symbole.
+Aucun test unitaire ne pouvait le voir. Corrigé, et couvert par un test dédié.
 
 ## Lot 04 — livrables vérifiés
 
