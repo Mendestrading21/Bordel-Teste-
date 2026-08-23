@@ -1,0 +1,229 @@
+{
+  "$comment": [
+    "Instruments de la matrice de couverture, conformes à references/MARKET_DATA.md.",
+    "",
+    "Les identifiants sont RÉELS et PUBLICS — un ISIN ou un ticker d'émetteur coté",
+    "n'est pas une donnée personnelle. Ils sont nécessaires : tester la couverture",
+    "avec des identifiants inventés ne prouverait rien, aucun fournisseur ne les",
+    "connaissant.",
+    "",
+    "Aucune position, aucune quantité et aucun montant personnel n'apparaît ici.",
+    "Ce fichier décrit ce qu'il faut savoir résoudre, pas ce que quelqu'un détient."
+  ],
+  "version": 1,
+  "categories": [
+    {
+      "id": "us-equities",
+      "label": "Actions américaines",
+      "priority": 1,
+      "instruments": [
+        {
+          "id": "aapl",
+          "name": "Apple Inc.",
+          "assetType": "STOCK",
+          "ticker": "AAPL",
+          "isin": "US0378331005",
+          "exchangeMic": "XNAS",
+          "currency": "USD"
+        },
+        {
+          "id": "msft",
+          "name": "Microsoft Corp.",
+          "assetType": "STOCK",
+          "ticker": "MSFT",
+          "isin": "US5949181045",
+          "exchangeMic": "XNAS",
+          "currency": "USD"
+        }
+      ]
+    },
+    {
+      "id": "ch-eu-equities",
+      "label": "Actions suisses et européennes",
+      "priority": 1,
+      "instruments": [
+        {
+          "id": "nesn",
+          "name": "Nestlé SA",
+          "assetType": "STOCK",
+          "ticker": "NESN",
+          "isin": "CH0038863350",
+          "exchangeMic": "XSWX",
+          "currency": "CHF"
+        },
+        {
+          "id": "novn",
+          "name": "Novartis AG",
+          "assetType": "STOCK",
+          "ticker": "NOVN",
+          "isin": "CH0012005267",
+          "exchangeMic": "XSWX",
+          "currency": "CHF"
+        },
+        {
+          "id": "asml",
+          "name": "ASML Holding NV",
+          "assetType": "STOCK",
+          "ticker": "ASML",
+          "isin": "NL0010273215",
+          "exchangeMic": "XAMS",
+          "currency": "EUR"
+        }
+      ]
+    },
+    {
+      "id": "us-etfs",
+      "label": "ETF américains",
+      "priority": 1,
+      "instruments": [
+        {
+          "id": "spy",
+          "name": "SPDR S&P 500 ETF Trust",
+          "assetType": "ETF",
+          "ticker": "SPY",
+          "isin": "US78462F1030",
+          "exchangeMic": "ARCX",
+          "currency": "USD"
+        },
+        {
+          "id": "qqq",
+          "name": "Invesco QQQ Trust",
+          "assetType": "ETF",
+          "ticker": "QQQ",
+          "isin": "US46090E1038",
+          "exchangeMic": "XNAS",
+          "currency": "USD"
+        }
+      ]
+    },
+    {
+      "id": "eu-ch-etfs",
+      "label": "ETF européens et suisses",
+      "priority": 2,
+      "instruments": [
+        {
+          "id": "iwda",
+          "name": "iShares Core MSCI World UCITS ETF",
+          "assetType": "ETF",
+          "ticker": "IWDA",
+          "isin": "IE00B4L5Y983",
+          "exchangeMic": "XAMS",
+          "currency": "USD"
+        },
+        {
+          "id": "chspi",
+          "name": "iShares Core SPI ETF (CH)",
+          "assetType": "ETF",
+          "ticker": "CHSPI",
+          "isin": "CH0237935652",
+          "exchangeMic": "XSWX",
+          "currency": "CHF"
+        }
+      ]
+    },
+    {
+      "id": "pictet-funds",
+      "label": "Fonds Pictet — trois classes de parts distinctes",
+      "priority": 1,
+      "$comment": "Priorité haute : c'est la couverture la plus incertaine et la plus discriminante entre fournisseurs.",
+      "instruments": [
+        {
+          "id": "pictet-water-p",
+          "name": "Pictet - Water P EUR",
+          "assetType": "MUTUAL_FUND",
+          "isin": "LU0104884860",
+          "shareClass": "P",
+          "currency": "EUR"
+        },
+        {
+          "id": "pictet-water-i",
+          "name": "Pictet - Water I EUR",
+          "assetType": "MUTUAL_FUND",
+          "isin": "LU0104884787",
+          "shareClass": "I",
+          "currency": "EUR"
+        },
+        {
+          "id": "pictet-security-p",
+          "name": "Pictet - Security P USD",
+          "assetType": "MUTUAL_FUND",
+          "isin": "LU0270904781",
+          "shareClass": "P",
+          "currency": "USD"
+        }
+      ]
+    },
+    {
+      "id": "international-funds",
+      "label": "Autres fonds internationaux",
+      "priority": 2,
+      "instruments": [
+        {
+          "id": "vanguard-glb",
+          "name": "Vanguard Global Stock Index Fund Inv EUR Acc",
+          "assetType": "MUTUAL_FUND",
+          "isin": "IE00B03HCZ61",
+          "shareClass": "Inv",
+          "currency": "EUR"
+        },
+        {
+          "id": "ubs-msci-world",
+          "name": "UBS (Lux) Fund Solutions – MSCI World UCITS ETF",
+          "assetType": "MUTUAL_FUND",
+          "isin": "LU0340285161",
+          "shareClass": "A",
+          "currency": "USD"
+        }
+      ]
+    },
+    {
+      "id": "us-options",
+      "label": "Options américaines — deux sous-jacents, plusieurs échéances",
+      "priority": 1,
+      "instruments": [
+        {
+          "id": "aapl-c-2027-01-15-200",
+          "name": "AAPL CALL 200 15/01/2027",
+          "assetType": "OPTION",
+          "underlying": "AAPL",
+          "optionType": "CALL",
+          "expiration": "2027-01-15",
+          "strike": "200",
+          "currency": "USD",
+          "expectedMultiplier": "100"
+        },
+        {
+          "id": "aapl-p-2027-06-18-180",
+          "name": "AAPL PUT 180 18/06/2027",
+          "assetType": "OPTION",
+          "underlying": "AAPL",
+          "optionType": "PUT",
+          "expiration": "2027-06-18",
+          "strike": "180",
+          "currency": "USD",
+          "expectedMultiplier": "100"
+        },
+        {
+          "id": "spy-c-2027-01-15-600",
+          "name": "SPY CALL 600 15/01/2027",
+          "assetType": "OPTION",
+          "underlying": "SPY",
+          "optionType": "CALL",
+          "expiration": "2027-01-15",
+          "strike": "600",
+          "currency": "USD",
+          "expectedMultiplier": "100"
+        }
+      ]
+    },
+    {
+      "id": "fx",
+      "label": "Paires de change vers le CHF",
+      "priority": 1,
+      "instruments": [
+        { "id": "usdchf", "name": "USD/CHF", "assetType": "OTHER", "base": "USD", "quote": "CHF" },
+        { "id": "eurchf", "name": "EUR/CHF", "assetType": "OTHER", "base": "EUR", "quote": "CHF" }
+      ]
+    }
+  ]
+}

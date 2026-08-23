@@ -51,7 +51,7 @@ export default tseslint.config(
   {
     // Scripts d'outillage exécutés directement par Node : globals Node
     // disponibles et sortie stdout légitime.
-    files: ["scripts/**/*.mjs"],
+    files: ["scripts/**/*.mjs", "scripts/**/*.mts"],
     languageOptions: { globals: globals.node },
     rules: { "no-console": "off" },
   },

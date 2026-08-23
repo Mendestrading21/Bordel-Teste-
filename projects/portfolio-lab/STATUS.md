@@ -4,7 +4,7 @@ Dernière mise à jour : 23 août 2026
 
 ## Phase
 
-**Lot 03 — Comptes, positions et valorisation**
+**Lot 04 — Contrat fournisseur et matrice de couverture**
 
 ## État global
 
@@ -56,6 +56,57 @@ Dernière mise à jour : 23 août 2026
 - `.env.example` documenté, aucun `.env` réel versionné ;
 - CI GitHub : format, lint, typecheck, tests, build, E2E, scan de secrets ;
 - ADR 0001 consignant les choix techniques.
+
+## Lot 04 — livrables vérifiés
+
+- contrat `MarketDataProvider` sans aucun type propre à un vendeur ;
+- fournisseur simulé déterministe, plafonné à la fraîcheur `MANUAL` ;
+- suite d'assertions de conformité partagée, exportée hors de l'entrée
+  principale pour ne pas imposer `vitest` aux consommateurs du package ;
+- registre avec statuts de vérification ordonnés
+  `UNVERIFIED` → `FIXTURE_TESTED` → `SANDBOX_TESTED` → `PRODUCTION_TESTED` ;
+- matrice de couverture : 19 instruments, 8 catégories, conforme aux minimums de
+  `MARKET_DATA.md` (2 actions US, 3 actions CH/EU, 2 ETF US, 2 ETF EU/CH,
+  3 fonds Pictet de classes distinctes, 2 autres fonds, 3 options US sur 2
+  sous-jacents, USD/CHF et EUR/CHF) ;
+- rapport reproductible en JSON et Markdown, vérifié par la CI ;
+- écran d'état des fournisseurs dans Réglages ;
+- guide d'intégration `docs/market-data-integration.md`.
+
+## Blocage majeur du Lot 04
+
+**Aucun fournisseur réel n'a pu être interrogé, ni même documenté.**
+
+Deux causes cumulées :
+
+1. aucune clé d'API n'a été fournie ;
+2. l'accès réseau aux fournisseurs est refusé par la politique de sortie de
+   l'environnement — `twelvedata.com`, `eodhd.com`, `massive.com` et
+   `openfigi.com` sont tous bloqués, documentation comprise.
+
+Conséquence assumée : **aucun adaptateur réel n'a été écrit**. En écrire un dans
+ces conditions produirait du code qui paraît intégré et une matrice qui
+rapporterait comme testé ce qui ne l'a jamais été.
+
+**Aucune recommandation de fournisseur ne peut donc être formulée à ce stade.**
+La procédure pour lever le blocage est dans `docs/market-data-integration.md`.
+
+## Preuves d'exécution — Lot 04
+
+| Commande                                  | Résultat                               |
+| ----------------------------------------- | -------------------------------------- |
+| `pnpm run format:check`                   | tous les fichiers conformes            |
+| `pnpm run lint`                           | 0 erreur, 0 avertissement              |
+| `pnpm run typecheck`                      | 8 packages, 0 erreur                   |
+| `pnpm run test:unit`                      | 288 tests — verts                      |
+| `pnpm run test:integration`               | 114 tests — verts, sur PostgreSQL réel |
+| `pnpm run build`                          | build de production réussi             |
+| `pnpm run coverage:matrix`                | 19 instruments × 5 fournisseurs        |
+| `pnpm run test:e2e` (sans données)        | 84 tests — verts                       |
+| `pnpm run test:e2e` (portefeuille peuplé) | 156 tests — verts                      |
+
+Résultat de la matrice : fournisseur simulé 9 résolus / 10 introuvables ;
+Twelve Data, Massive, EODHD et OpenFIGI **19 jamais interrogés** chacun.
 
 ## Lot 03 — livrables vérifiés
 

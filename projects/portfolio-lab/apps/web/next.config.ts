@@ -56,6 +56,7 @@ const nextConfig: NextConfig = {
     "@portfolio-lab/ui",
     "@portfolio-lab/database",
     "@portfolio-lab/portfolio-engine",
+    "@portfolio-lab/market-data",
   ],
   typedRoutes: true,
   async headers() {

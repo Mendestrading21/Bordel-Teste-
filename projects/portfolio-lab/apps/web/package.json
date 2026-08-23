@@ -12,6 +12,7 @@
   "dependencies": {
     "@portfolio-lab/database": "workspace:*",
     "@portfolio-lab/domain": "workspace:*",
+    "@portfolio-lab/market-data": "workspace:*",
     "@portfolio-lab/portfolio-engine": "workspace:*",
     "@portfolio-lab/ui": "workspace:*",
     "@supabase/ssr": "^0.12.4",

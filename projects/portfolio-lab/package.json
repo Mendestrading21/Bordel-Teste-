@@ -21,7 +21,8 @@
     "build": "pnpm -r --sequential run build",
     "dev": "pnpm --filter @portfolio-lab/web run dev",
     "dev:gateway": "pnpm --filter @portfolio-lab/market-gateway run dev",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "coverage:matrix": "tsx scripts/coverage-matrix.mts"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
@@ -29,6 +30,7 @@
     "@playwright/test": "^1.62.1",
     "@portfolio-lab/database": "workspace:*",
     "@portfolio-lab/domain": "workspace:*",
+    "@portfolio-lab/market-data": "workspace:*",
     "@portfolio-lab/portfolio-engine": "workspace:*",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.23.1",
@@ -36,6 +38,7 @@
     "globals": "^17.11.0",
     "pg": "^8.23.0",
     "prettier": "^3.4.2",
+    "tsx": "^4.23.12",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0",
     "vitest": "^3.0.2"
