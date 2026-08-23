@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isActiveNav, NAV_ITEMS } from "./nav-items.js";
+import { isActiveNav, NAV_ITEMS } from "./nav-items";
 
 describe("NAV_ITEMS", () => {
   it("expose les cinq onglets de la spécification, Ajouter au centre", () => {
