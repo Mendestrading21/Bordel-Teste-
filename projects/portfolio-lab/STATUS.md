@@ -4,27 +4,29 @@ Dernière mise à jour : 23 août 2026
 
 ## Phase
 
-**Lot 08 — Dashboard et analyse**
+**Lot 09 — Fiabilité, PWA et sécurité**
 
 ## État global
 
-| Sujet                            | État                                            |
-| -------------------------------- | ----------------------------------------------- |
-| Produit défini                   | oui                                             |
-| Skill Claude Code                | fusionné dans `main` (PR #1)                    |
-| Architecture documentée          | oui, 8 ADR                                      |
-| Workspace exécutable             | oui                                             |
-| PWA installable                  | oui                                             |
-| Base de données                  | PostgreSQL, 3 migrations, RLS activée et forcée |
-| Authentification                 | oui (Lot 02)                                    |
-| Moteur de valorisation           | oui, décimal exact, réconciliation vérifiée     |
-| Historique du patrimoine         | oui, points mesurés — jamais reconstitués       |
-| Fournisseur de marché choisi     | **non** — bloqué, voir « Blocage majeur »       |
-| Matrice de couverture exécutée   | oui, 19 instruments, tous `NOT_RUN`             |
-| Cours réels                      | aucun ; fixtures et fournisseur simulé          |
-| Clé API réelle en dépôt          | aucune, par conception                          |
-| Donnée financière réelle en base | aucune, par conception                          |
-| Déploiement                      | aucun                                           |
+| Sujet                             | État                                            |
+| --------------------------------- | ----------------------------------------------- |
+| Produit défini                    | oui                                             |
+| Skill Claude Code                 | fusionné dans `main` (PR #1)                    |
+| Architecture documentée           | oui, 9 ADR                                      |
+| Workspace exécutable              | oui                                             |
+| PWA installable                   | oui, avec cache hors ligne daté                 |
+| Base de données                   | PostgreSQL, 3 migrations, RLS activée et forcée |
+| Authentification                  | oui (Lot 02)                                    |
+| Moteur de valorisation            | oui, décimal exact, réconciliation vérifiée     |
+| Historique du patrimoine          | oui, points mesurés — jamais reconstitués       |
+| Fournisseur de marché choisi      | **non** — bloqué, voir « Blocage majeur »       |
+| Matrice de couverture exécutée    | oui, 19 instruments, tous `NOT_RUN`             |
+| Cours réels                       | aucun ; fixtures et fournisseur simulé          |
+| Clé API réelle en dépôt           | aucune, par conception                          |
+| Donnée financière réelle en base  | aucune, par conception                          |
+| Export et suppression des données | oui, suppression vérifiée table par table       |
+| Audit des dépendances             | 0 vulnérabilité, vérifié en CI                  |
+| Déploiement                       | aucun                                           |
 
 ## Avancement par lot
 
@@ -38,9 +40,85 @@ Dernière mise à jour : 23 août 2026
 | 05  | Actions, ETF et FX live                           | terminé, fusionné |
 | 06  | Fonds et NAV                                      | terminé, fusionné |
 | 07  | Options                                           | terminé, fusionné |
-| 08  | Dashboard et analyse                              | terminé           |
-| 09  | Fiabilité, PWA et sécurité                        | à faire           |
+| 08  | Dashboard et analyse                              | terminé, fusionné |
+| 09  | Fiabilité, PWA et sécurité                        | terminé           |
 | 10  | Release candidate 1.0                             | à faire           |
+
+## Lot 09 — livrables vérifiés
+
+- **paquet `@portfolio-lab/security`** partagé par l'application web et la
+  passerelle : la liste des secrets vivait dans la passerelle seule, et une
+  liste dupliquée finit par diverger ;
+- **journal expurgé sur deux axes** — secrets _par valeur_, et données
+  financières ou personnelles _par nom de champ_ : « valorisation terminée :
+  32 343.89 CHF » ne contient aucun secret et publie pourtant le patrimoine ;
+- identifiants réduits à leur préfixe : un journal doit permettre de corréler,
+  pas d'identifier ;
+- contexte de journalisation limité aux **primitives** — accepter un objet
+  reviendrait à journaliser tout ce qu'il contient ;
+- **limitation de débit** à fenêtre glissante, horloge injectée, refus ne
+  consommant pas de jeton, table bornée ; appliquée après authentification et
+  sur l'identité, jamais sur l'adresse IP ;
+- **ordre des refus corrigé** sur `/api/live-token` : la vérification du secret
+  précédait l'authentification et renseignait un appelant anonyme sur la
+  configuration du serveur ;
+- **service worker réel** : réseau d'abord pour les pages, cache d'abord pour
+  les fichiers empreintés, **aucune** route d'API mise en cache ;
+- **bandeau hors ligne daté** : le rendu serveur inscrit son horodatage dans la
+  page, et l'application annonce l'âge de ce qu'elle affiche ;
+- page de secours `/hors-ligne` statique, pour un écran jamais consulté ;
+- **sauvegarde** JSON versionnée, décimales en chaînes, sans aucun cours,
+  servie par une route avec `Content-Disposition` et `no-store` ;
+- **suppression définitive** avec mot à recopier, limite de débit, et
+  **vérification a posteriori** : les lignes restantes sont comptées table par
+  table et une suppression incomplète est signalée comme un échec ;
+- cascade vérifiée sur PostgreSQL réel jusqu'aux transactions, maillon le plus
+  profond ;
+- `pnpm.overrides` corrigeant cinq vulnérabilités transitives, et un job CI
+  `pnpm audit --audit-level moderate` ;
+- **runbook de reprise** couvrant onze symptômes observables ;
+- ADR 0009.
+
+## Preuves d'exécution — Lot 09
+
+| Commande                                  | Résultat                               |
+| ----------------------------------------- | -------------------------------------- |
+| `pnpm run format:check`                   | tous les fichiers conformes            |
+| `pnpm run lint`                           | 0 erreur, 0 avertissement              |
+| `pnpm run typecheck`                      | 9 packages, 0 erreur                   |
+| `pnpm run test:unit`                      | 632 tests — verts                      |
+| `pnpm run test:integration`               | 164 tests — verts, sur PostgreSQL réel |
+| `pnpm run build`                          | build de production réussi             |
+| `pnpm run test:e2e` (sans données)        | 136 tests — verts                      |
+| `pnpm run test:e2e` (portefeuille peuplé) | 311 verts, 69 ignorés                  |
+| `pnpm audit --audit-level moderate`       | aucune vulnérabilité connue            |
+
+Les 69 ignorés sont les parcours de session, sans objet en mode démonstration,
+et ceux qui dépendent du service worker — que `next dev` n'enregistre pas.
+
+## Trois défauts trouvés pendant le Lot 09
+
+1. **Aucun composant client n'était hydraté en développement.** La politique de
+   sécurité du contenu interdisait `'unsafe-eval'`, dont `next dev` a besoin
+   pour ses source maps ; le navigateur refusait donc tout le bundle client.
+   L'application s'affichait normalement — le rendu serveur suffit — et les
+   formulaires continuaient de fonctionner par soumission native, ce qui
+   masquait entièrement le problème, **y compris dans les parcours E2E de la
+   voie démonstration**, qui tournent sur `next dev`. Corrigé, et gardé par deux
+   tests : l'un vérifie que la production n'autorise jamais `eval`, l'autre
+   qu'un composant purement client s'hydrate réellement.
+2. **Le champ de confirmation de suppression pouvait se désynchroniser.** Avec
+   `value={...}`, un collage — exactement ce qu'un utilisateur fait avec le mot
+   affiché juste au-dessus — laissait le bouton inactif alors que le champ
+   montrait le bon mot. Le champ est devenu non contrôlé.
+3. **`/api/live-token` renseignait un appelant anonyme** sur l'état de
+   configuration du serveur, en vérifiant son secret partagé avant
+   d'authentifier.
+
+Un quatrième point, découvert en écrivant les tests : un contrôle de
+débordement au niveau de la page ne voit rien d'un tableau coupé dans un
+conteneur défilant, et mes premiers tests d'export saturaient ma propre limite
+de débit — la limite fonctionnait, les tests étaient faux.
 
 ## Lot 08 — livrables vérifiés
 
