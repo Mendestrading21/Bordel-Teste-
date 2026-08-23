@@ -1,4 +1,5 @@
-import { BASE_CURRENCY, type CurrencyCode, type DecimalString } from "@portfolio-lab/domain";
+import { BASE_CURRENCY, type CurrencyCode } from "@portfolio-lab/domain";
+import { portfolioReturn } from "@portfolio-lab/portfolio-engine";
 
 import { DataHealth } from "@/components/data-health";
 import { DemoBanner } from "@/components/demo-banner";
@@ -33,15 +34,13 @@ export default async function AccueilPage(): Promise<React.JSX.Element> {
   const currency = (view.portfolio?.base_currency ?? BASE_CURRENCY) as CurrencyCode;
 
   /*
-   * Pourcentage de P&L au niveau du portefeuille : rapporté à la valeur absolue
-   * du capital investi, et omis si ce capital est nul.
+   * Pourcentage de P&L au niveau du portefeuille.
+   *
+   * Le calcul est délégué au moteur, en arithmétique décimale : la version
+   * précédente passait par `Number`, ce qui réintroduisait l'erreur de
+   * flottant sur le chiffre le plus regardé de l'écran.
    */
-  const pnlPct: DecimalString | null =
-    valuation === null || Number(valuation.totalCostBasisBase) === 0
-      ? null
-      : ((
-          Number(valuation.totalUnrealizedPnlBase) / Math.abs(Number(valuation.totalCostBasisBase))
-        ).toFixed(6) as DecimalString);
+  const pnlPct = valuation === null ? null : portfolioReturn(valuation);
 
   return (
     <>

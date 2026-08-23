@@ -4,6 +4,7 @@ import { toDecimalString, type DecimalString } from "@portfolio-lab/domain";
 
 import {
   decimalSeparator,
+  formatAmount,
   formatMoney,
   formatPercent,
   formatQuantity,
@@ -124,5 +125,27 @@ describe("formatQuantity", () => {
 
   it("ne produit jamais de notation exponentielle", () => {
     expect(formatQuantity(d("0.000000000001"))).not.toContain("e");
+  });
+});
+
+describe("formatAmount", () => {
+  it("garde les décimales de la devise sans en afficher le code", () => {
+    expect(formatAmount(d("17800"), "CHF")).toBe("17'800.00");
+    expect(formatAmount(d("1103.6"), "CHF")).toBe("1'103.60");
+  });
+
+  it("suit le nombre de décimales de la devise", () => {
+    // Le yen n'a pas de subdivision courante.
+    expect(formatAmount(d("17800"), "JPY")).toBe("17'800");
+  });
+
+  it("conserve le signe des montants négatifs", () => {
+    expect(formatAmount(d("-250.5"), "CHF")).toBe("-250.50");
+  });
+
+  it("produit la même chose que formatMoney, code de devise en moins", () => {
+    const withCode = formatMoney(d("17800"), "CHF");
+    expect(withCode).toContain(formatAmount(d("17800"), "CHF"));
+    expect(withCode).toContain("CHF");
   });
 });

@@ -13,7 +13,9 @@ import {
 } from "@portfolio-lab/database";
 import { toDecimalString, type CurrencyCode } from "@portfolio-lab/domain";
 
+import { recordSnapshot } from "./analytics";
 import { resolveDataMode } from "./mode";
+import { loadPortfolioView } from "./portfolio";
 import {
   createAccountSchema,
   createPositionSchema,
@@ -226,4 +228,42 @@ export async function archiveAccountAction(
   revalidatePath("/reglages");
   revalidatePath("/positions");
   return { status: "success", message: "Compte archivé." };
+}
+
+/**
+ * Enregistre un point d'historique du patrimoine.
+ *
+ * L'action est **explicite** plutôt que déclenchée par l'affichage d'une page :
+ * un enregistrement à chaque rendu multiplierait les points sans qu'aucun
+ * n'apporte d'information, et écrirait en base sur une simple lecture.
+ *
+ * `DATA_MODEL.md` prévoit par ailleurs un snapshot quotidien automatique après
+ * publication des données attendues ; il dépend d'un ordonnanceur, absent tant
+ * qu'aucun fournisseur réel n'alimente les cours.
+ */
+export async function recordSnapshotAction(
+  _previous: ActionResult,
+  _formData: FormData,
+): Promise<ActionResult> {
+  const userId = currentUserId();
+  if (userId === null) {
+    return NOT_AUTHENTICATED;
+  }
+
+  try {
+    const view = await loadPortfolioView();
+    if (view.valuation === null) {
+      return { status: "error", message: "Aucun portefeuille à enregistrer." };
+    }
+
+    const result = await recordSnapshot(view, view.valuation, new Date());
+    if (!result.recorded) {
+      return { status: "error", message: result.reason ?? "Point d'historique non enregistré." };
+    }
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/analyse");
+  return { status: "success", message: "Point d'historique enregistré." };
 }
