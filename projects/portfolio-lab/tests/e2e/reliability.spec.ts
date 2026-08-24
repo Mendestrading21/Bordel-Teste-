@@ -46,7 +46,13 @@ test.describe("service worker", () => {
     const response = await page.goto("/hors-ligne");
 
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: "Hors ligne" })).toBeVisible();
+    /*
+     * La page de secours est identifiée par son propre titre, pas par le mot
+     * « hors ligne » : le bandeau d'âge, rendu dans toutes les pages, porte ce
+     * libellé lui aussi. Viser le titre de la page distingue les deux
+     * situations — une page datée n'est pas une page absente.
+     */
+    await expect(page.getByRole("heading", { name: "Écran non enregistré" })).toBeVisible();
     // Elle explique l'absence plutôt que de laisser un écran muet.
     await expect(page.getByText(/jamais été affiché/)).toBeVisible();
   });
@@ -127,7 +133,7 @@ test.describe("dégradation hors ligne", () => {
     await context.setOffline(true);
     await page.goto("/positions/00000000-0000-4000-8000-000000000000");
 
-    await expect(page.getByRole("heading", { name: "Hors ligne" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Écran non enregistré" })).toBeVisible();
 
     await context.setOffline(false);
   });

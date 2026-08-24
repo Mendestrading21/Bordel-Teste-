@@ -5,13 +5,22 @@ import { usePathname } from "next/navigation";
 
 import { isActiveNav, NAV_ITEMS } from "./nav-items";
 import { NavIcon } from "./nav-icon";
+import { cx } from "./ui";
 
 /**
- * Barre de navigation basse, ancrée et respectant la safe-area iOS.
+ * Barre de navigation basse.
  *
- * Chaque cible fait au moins 44px de haut (`--pl-touch-target`) et l'état actif
- * est signalé par la couleur *et* par `aria-current`, jamais par la seule
- * teinte cuivre.
+ * Elle est posée sur la surface élevée et non sur le fond : sur un bleu-nuit
+ * aussi sombre, une barre de la même couleur que la page ne se détache que par
+ * son filet supérieur, et disparaît dès que le contenu défile derrière.
+ *
+ * L'onglet actif reçoit une pastille d'accent **en plus** de la couleur, et
+ * `aria-current` reste la source de vérité : la teinte seule ne suffit ni pour
+ * un lecteur d'écran ni pour une vision des couleurs atypique.
+ *
+ * Chaque cible fait au moins 44 px (`--pl-touch-target`) et la barre réserve la
+ * safe-area iOS, sans quoi le dernier onglet tomberait sous l'indicateur
+ * d'accueil de l'iPhone.
  */
 export function BottomNav(): React.JSX.Element {
   const pathname = usePathname();
@@ -19,10 +28,10 @@ export function BottomNav(): React.JSX.Element {
   return (
     <nav
       aria-label="Navigation principale"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-subtle bg-surface/95 backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-subtle bg-elevated/95 backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="mx-auto flex w-full max-w-3xl">
+      <ul className="mx-auto flex w-full max-w-3xl px-1">
         {NAV_ITEMS.map((item) => {
           const active = isActiveNav(pathname, item.href);
           return (
@@ -30,12 +39,22 @@ export function BottomNav(): React.JSX.Element {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-[var(--pl-touch-target)] flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium transition-colors ${
-                  active ? "text-accent" : "text-secondary hover:text-primary"
-                }`}
+                className={cx(
+                  "flex min-h-[var(--pl-touch-target)] flex-col items-center justify-center gap-1 px-1 py-1.5",
+                  "text-[11px] font-medium transition-colors",
+                  active ? "text-accent" : "text-tertiary hover:text-primary",
+                )}
                 style={{ transitionDuration: "var(--pl-transition-fast)" }}
               >
-                <NavIcon name={item.label} active={active} />
+                <span
+                  className={cx(
+                    "flex h-7 w-12 items-center justify-center rounded-token-pill transition-colors",
+                    active ? "bg-accent/15" : "bg-transparent",
+                  )}
+                  style={{ transitionDuration: "var(--pl-transition-fast)" }}
+                >
+                  <NavIcon name={item.label} active={active} />
+                </span>
                 <span>{item.label}</span>
                 <span className="sr-only">{item.description}</span>
               </Link>

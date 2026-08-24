@@ -19,6 +19,42 @@ test.describe("tableau de bord", () => {
     await expect(page.getByText(TOTAL_CHF)).toBeVisible();
   });
 
+  test("montre le patrimoine total dès le haut de l'écran", async ({ page }, testInfo) => {
+    /*
+     * Le contrôle qui a motivé la refonte de la coquille.
+     *
+     * L'en-tête d'écran et le bandeau de démonstration occupaient à eux seuls
+     * près de 290 px : sur un iPhone, l'utilisateur ouvrait l'application et
+     * devait faire défiler pour voir le chiffre pour lequel il l'avait ouverte.
+     *
+     * Ce qui est borné ici est la **hauteur de tout ce qui précède le chiffre**,
+     * et non sa simple présence dans la fenêtre. Un seuil « au-dessus de la
+     * ligne de flottaison » ne mordrait pas : sur un écran de 844 px, le total
+     * pourrait glisser de 200 px de plus sans jamais en sortir, et la
+     * régression passerait inaperçue.
+     *
+     * Le budget est absolu parce que le bandeau et l'en-tête ne dépendent
+     * pratiquement pas de la largeur : mesuré à 199 px sur tablette et desktop,
+     * 224 px sur les deux iPhone.
+     */
+    const CHROME_BUDGET_PX = 280;
+
+    await page.goto("/");
+    const total = page.getByText(TOTAL_CHF).first();
+    await expect(total).toBeVisible();
+
+    const box = await total.boundingBox();
+    expect(box, "le total doit avoir une boîte mesurable").not.toBeNull();
+
+    // Garde-fou : la mesure n'a de sens qu'en haut du document.
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
+    expect(
+      Math.round(box?.y ?? Number.POSITIVE_INFINITY),
+      `${testInfo.project.name} : le total commence trop bas`,
+    ).toBeLessThanOrEqual(CHROME_BUDGET_PX);
+  });
+
   test("annonce en permanence que les données sont fictives", async ({ page }) => {
     await page.goto("/");
     const banner = page.getByRole("note");
@@ -31,8 +67,18 @@ test.describe("tableau de bord", () => {
     await page.goto("/");
     const body = (await page.textContent("body")) ?? "";
     expect(body).not.toContain("En direct");
-    // La fraîcheur du portefeuille suit sa position la plus dégradée.
-    await expect(page.getByText("Manuel").first()).toBeVisible();
+    /*
+     * La fraîcheur du portefeuille suit sa position la plus dégradée. Le badge
+     * est désigné par son attribut plutôt que par son libellé : chercher le
+     * mot « Manuel » n'importe où dans la page faisait dépendre le test de la
+     * prose, et n'importe quelle phrase citant un type de cours pouvait devenir
+     * la première occurrence trouvée.
+     */
+    const badge = page.locator('[data-pl-freshness="MANUAL"]').first();
+    await expect(badge).toBeVisible();
+    // `toContainText` et non `toHaveText` : le badge porte aussi la source et
+    // l'horodatage dans un texte réservé aux lecteurs d'écran.
+    await expect(badge).toContainText("Manuel");
   });
 
   test("explique pourquoi la variation du jour n'est pas calculable", async ({ page }) => {

@@ -10,18 +10,16 @@ import { CHIP_BASE, CHIP_TONE, cx, type Tone } from "./styles";
 export function Chip({
   tone = "neutral",
   icon,
-  title,
   className,
   children,
+  ...rest
 }: Readonly<{
   tone?: Tone | undefined;
   icon?: string | undefined;
-  title?: string | undefined;
-  className?: string | undefined;
-  children: React.ReactNode;
-}>): React.JSX.Element {
+}> &
+  React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
   return (
-    <span className={cx(CHIP_BASE, CHIP_TONE[tone], className)} title={title}>
+    <span className={cx(CHIP_BASE, CHIP_TONE[tone], className)} {...rest}>
       {icon === undefined ? null : (
         <span aria-hidden="true" className="text-[12px] leading-none">
           {icon}
