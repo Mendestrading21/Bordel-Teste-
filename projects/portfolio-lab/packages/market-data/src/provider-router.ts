@@ -12,13 +12,7 @@ import type {
 import { ProviderError } from "./contract";
 
 export type ProviderRequirement =
-  | "search"
-  | "resolve"
-  | "snapshot"
-  | "history"
-  | "stream"
-  | "optionChain"
-  | "fx";
+  "search" | "resolve" | "snapshot" | "history" | "stream" | "optionChain" | "fx";
 
 export type ProviderPolicy = {
   readonly providerId: string;
@@ -48,7 +42,10 @@ export class ProviderRouter {
 
   constructor(providers: readonly MarketDataProvider[], policies?: readonly ProviderPolicy[]) {
     for (const provider of providers) this.providers.set(provider.id, provider);
-    this.policies = [...(policies ?? providers.map((p, index) => ({ providerId: p.id, priority: index, enabled: true })))]
+    this.policies = [
+      ...(policies ??
+        providers.map((p, index) => ({ providerId: p.id, priority: index, enabled: true }))),
+    ]
       .filter((p) => p.enabled)
       .sort((a, b) => a.priority - b.priority);
   }
@@ -86,7 +83,8 @@ export class ProviderRouter {
       } catch (error) {
         if (error instanceof ProviderError) {
           failures.push({ provider: provider.id, kind: error.kind, message: error.message });
-          if (["NOT_FOUND", "UNSUPPORTED", "RATE_LIMITED", "NETWORK"].includes(error.kind)) continue;
+          if (["NOT_FOUND", "UNSUPPORTED", "RATE_LIMITED", "NETWORK"].includes(error.kind))
+            continue;
         }
         throw error;
       }
@@ -99,7 +97,9 @@ export class ProviderRouter {
     );
   }
 
-  async search(query: InstrumentSearchQuery): Promise<{ candidates: readonly InstrumentCandidate[]; trace: RouterTrace }> {
+  async search(
+    query: InstrumentSearchQuery,
+  ): Promise<{ candidates: readonly InstrumentCandidate[]; trace: RouterTrace }> {
     const providers = this.ordered("search");
     const attemptedProviders: string[] = [];
     const failures: { provider: string; kind: string; message: string }[] = [];
@@ -112,7 +112,8 @@ export class ProviderRouter {
       } catch (error) {
         if (error instanceof ProviderError) {
           failures.push({ provider: provider.id, kind: error.kind, message: error.message });
-          if (["NOT_FOUND", "UNSUPPORTED", "RATE_LIMITED", "NETWORK"].includes(error.kind)) continue;
+          if (["NOT_FOUND", "UNSUPPORTED", "RATE_LIMITED", "NETWORK"].includes(error.kind))
+            continue;
         }
         throw error;
       }
@@ -120,7 +121,12 @@ export class ProviderRouter {
 
     const dedupe = new Map<string, InstrumentCandidate>();
     for (const candidate of all) {
-      const key = [candidate.isin ?? "", candidate.providerSymbol, candidate.exchangeMic ?? "", candidate.currency].join("|");
+      const key = [
+        candidate.isin ?? "",
+        candidate.providerSymbol,
+        candidate.exchangeMic ?? "",
+        candidate.currency,
+      ].join("|");
       const previous = dedupe.get(key);
       if (!previous || candidate.confidence > previous.confidence) dedupe.set(key, candidate);
     }
@@ -140,7 +146,9 @@ export class ProviderRouter {
     };
   }
 
-  resolve(ref: InstrumentReference): Promise<{ instrument: ResolvedInstrument; trace: RouterTrace }> {
+  resolve(
+    ref: InstrumentReference,
+  ): Promise<{ instrument: ResolvedInstrument; trace: RouterTrace }> {
     return this.firstSuccess("resolve", async (provider) => {
       const instrument = await provider.resolve(ref);
       if (!instrument) throw new ProviderError("NOT_FOUND", provider.id, "Instrument introuvable");
@@ -148,25 +156,44 @@ export class ProviderRouter {
     }).then(({ value, trace }) => ({ instrument: value, trace }));
   }
 
-  snapshot(instrument: ResolvedInstrument): Promise<{ quote: NormalizedQuote; trace: RouterTrace }> {
+  snapshot(
+    instrument: ResolvedInstrument,
+  ): Promise<{ quote: NormalizedQuote; trace: RouterTrace }> {
     const preferred = this.providers.get(instrument.provider);
     if (preferred) {
-      return preferred.getSnapshot(instrument)
-        .then((quote) => ({ quote, trace: { requirement: "snapshot" as const, attemptedProviders: [preferred.id], servedBy: preferred.id, failures: [] } }))
+      return preferred
+        .getSnapshot(instrument)
+        .then((quote) => ({
+          quote,
+          trace: {
+            requirement: "snapshot" as const,
+            attemptedProviders: [preferred.id],
+            servedBy: preferred.id,
+            failures: [],
+          },
+        }))
         .catch(async (error) => {
-          if (!(error instanceof ProviderError) || !["NOT_FOUND", "UNSUPPORTED", "RATE_LIMITED", "NETWORK"].includes(error.kind)) throw error;
-          const fallback = await this.firstSuccess("snapshot", (provider) => provider.getSnapshot(instrument));
+          if (
+            !(error instanceof ProviderError) ||
+            !["NOT_FOUND", "UNSUPPORTED", "RATE_LIMITED", "NETWORK"].includes(error.kind)
+          )
+            throw error;
+          const fallback = await this.firstSuccess("snapshot", (provider) =>
+            provider.getSnapshot(instrument),
+          );
           return { quote: fallback.value, trace: fallback.trace };
         });
     }
 
-    return this.firstSuccess("snapshot", (provider) => provider.getSnapshot(instrument))
-      .then(({ value, trace }) => ({ quote: value, trace }));
+    return this.firstSuccess("snapshot", (provider) => provider.getSnapshot(instrument)).then(
+      ({ value, trace }) => ({ quote: value, trace }),
+    );
   }
 
   history(request: HistoryRequest): Promise<{ bars: readonly PriceBar[]; trace: RouterTrace }> {
-    return this.firstSuccess("history", (provider) => provider.getHistory(request))
-      .then(({ value, trace }) => ({ bars: value, trace }));
+    return this.firstSuccess("history", (provider) => provider.getHistory(request)).then(
+      ({ value, trace }) => ({ bars: value, trace }),
+    );
   }
 
   async subscribe(
@@ -188,7 +215,12 @@ export class ProviderRouter {
       const provider = this.providers.get(providerId)!;
       const handle = await provider.subscribe!(group, onQuote);
       handles.push(handle);
-      traces.push({ requirement: "stream", attemptedProviders: [providerId], servedBy: providerId, failures: [] });
+      traces.push({
+        requirement: "stream",
+        attemptedProviders: [providerId],
+        servedBy: providerId,
+        failures: [],
+      });
     }
 
     return {

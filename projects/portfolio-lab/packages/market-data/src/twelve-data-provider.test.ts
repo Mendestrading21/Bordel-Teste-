@@ -14,18 +14,21 @@ describe("Twelve Data provider", () => {
     const provider = createTwelveDataProvider({
       apiKey: "demo",
       mode: "demo",
-      fetchImpl: async () => response({
-        data: [{
-          symbol: "AAPL",
-          instrument_name: "Apple Inc",
-          exchange: "NASDAQ",
-          mic_code: "XNAS",
-          instrument_type: "Common Stock",
-          country: "United States",
-          currency: "USD",
-        }],
-        status: "ok",
-      }),
+      fetchImpl: async () =>
+        response({
+          data: [
+            {
+              symbol: "AAPL",
+              instrument_name: "Apple Inc",
+              exchange: "NASDAQ",
+              mic_code: "XNAS",
+              instrument_type: "Common Stock",
+              country: "United States",
+              currency: "USD",
+            },
+          ],
+          status: "ok",
+        }),
     });
 
     const result = await provider.search({ text: "AAPL" });
@@ -39,8 +42,17 @@ describe("Twelve Data provider", () => {
   });
 
   it("ne prétend jamais être LIVE sans configuration explicite", () => {
-    const delayed = createTwelveDataProvider({ apiKey: "demo", mode: "demo", fetchImpl: async () => response({}) });
-    const live = createTwelveDataProvider({ apiKey: "test", mode: "live", freshness: "LIVE", fetchImpl: async () => response({}) });
+    const delayed = createTwelveDataProvider({
+      apiKey: "demo",
+      mode: "demo",
+      fetchImpl: async () => response({}),
+    });
+    const live = createTwelveDataProvider({
+      apiKey: "test",
+      mode: "live",
+      freshness: "LIVE",
+      fetchImpl: async () => response({}),
+    });
 
     expect(delayed.capabilities().bestFreshness).toBe("DELAYED");
     expect(live.capabilities().bestFreshness).toBe("LIVE");
@@ -53,13 +65,37 @@ describe("Twelve Data provider", () => {
       now: () => new Date("2026-08-24T08:00:00.000Z"),
       fetchImpl: async (url) => {
         if (url.includes("symbol_search")) {
-          return response({ data: [{ symbol: "AAPL", instrument_name: "Apple Inc", exchange: "NASDAQ", mic_code: "XNAS", instrument_type: "Common Stock", country: "United States", currency: "USD" }], status: "ok" });
+          return response({
+            data: [
+              {
+                symbol: "AAPL",
+                instrument_name: "Apple Inc",
+                exchange: "NASDAQ",
+                mic_code: "XNAS",
+                instrument_type: "Common Stock",
+                country: "United States",
+                currency: "USD",
+              },
+            ],
+            status: "ok",
+          });
         }
-        return response({ symbol: "AAPL", currency: "USD", timestamp: 1787550000, close: "227.31000", previous_close: "225.50000", is_market_open: true });
+        return response({
+          symbol: "AAPL",
+          currency: "USD",
+          timestamp: 1787550000,
+          close: "227.31000",
+          previous_close: "225.50000",
+          is_market_open: true,
+        });
       },
     });
 
-    const instrument = await provider.resolve({ kind: "TICKER", ticker: "AAPL", exchangeMic: "XNAS" });
+    const instrument = await provider.resolve({
+      kind: "TICKER",
+      ticker: "AAPL",
+      exchangeMic: "XNAS",
+    });
     if (instrument === null) throw new Error("AAPL non résolu");
     const quote = await provider.getSnapshot(instrument);
 
@@ -75,9 +111,27 @@ describe("Twelve Data provider", () => {
       mode: "live",
       fetchImpl: async (url) => {
         if (url.includes("symbol_search")) {
-          return response({ data: [{ symbol: "FXAIX", instrument_name: "Fidelity 500 Index Fund", exchange: "NASDAQ", mic_code: "XNAS", instrument_type: "Mutual Fund", country: "United States", currency: "USD" }], status: "ok" });
+          return response({
+            data: [
+              {
+                symbol: "FXAIX",
+                instrument_name: "Fidelity 500 Index Fund",
+                exchange: "NASDAQ",
+                mic_code: "XNAS",
+                instrument_type: "Mutual Fund",
+                country: "United States",
+                currency: "USD",
+              },
+            ],
+            status: "ok",
+          });
         }
-        return response({ symbol: "FXAIX", currency: "USD", datetime: "2026-08-21", close: "215.42" });
+        return response({
+          symbol: "FXAIX",
+          currency: "USD",
+          datetime: "2026-08-21",
+          close: "215.42",
+        });
       },
     });
 
@@ -94,6 +148,8 @@ describe("Twelve Data provider", () => {
       mode: "live",
       fetchImpl: async () => response({ status: "error", code: 429, message: "rate limit" }),
     });
-    await expect(provider.search({ text: "AAPL" })).rejects.toMatchObject({ provider: "twelvedata" });
+    await expect(provider.search({ text: "AAPL" })).rejects.toMatchObject({
+      provider: "twelvedata",
+    });
   });
 });

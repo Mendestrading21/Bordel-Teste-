@@ -3,8 +3,10 @@ import {
   toDecimalString,
   type AssetType,
   type CurrencyCode,
+  type DecimalString,
 } from "@portfolio-lab/domain";
 
+import { providerDecimal } from "./provider-decimal.js";
 import {
   ProviderError,
   type FxQuote,
@@ -94,15 +96,9 @@ function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value : null;
 }
 
-function numericString(value: unknown, field: string): ReturnType<typeof toDecimalString> {
-  if (typeof value !== "number" && typeof value !== "string") {
-    throw new ProviderError(
-      "MALFORMED_RESPONSE",
-      EODHD_PROVIDER_ID,
-      `Champ numérique EODHD invalide : ${field}`,
-    );
-  }
-  return toDecimalString(String(value));
+/** Normalisation décimale du fournisseur — voir `provider-decimal.ts`. */
+function numericString(value: unknown, field: string): DecimalString {
+  return providerDecimal(value, EODHD_PROVIDER_ID, field);
 }
 
 function currencyFrom(value: unknown): CurrencyCode | null {
@@ -131,7 +127,10 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
   const timeoutMs = options.timeoutMs ?? 8_000;
   const now = options.now ?? (() => new Date());
 
-  async function requestJson(path: string, params: Readonly<Record<string, string>> = {}): Promise<unknown> {
+  async function requestJson(
+    path: string,
+    params: Readonly<Record<string, string>> = {},
+  ): Promise<unknown> {
     const url = new URL(`${baseUrl}/${path.replace(/^\//, "")}`);
     url.searchParams.set("api_token", options.apiToken);
     url.searchParams.set("fmt", "json");
@@ -177,7 +176,10 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
       if (ref.kind === "PROVIDER_SYMBOL" && ref.provider === EODHD_PROVIDER_ID) return ref.symbol;
       if (ref.kind === "TICKER") return `${ref.ticker}.US`;
       if (ref.kind === "ISIN") {
-        return Object.values(DEMO_INSTRUMENTS).find((item) => item.isin === ref.isin)?.providerSymbol ?? null;
+        return (
+          Object.values(DEMO_INSTRUMENTS).find((item) => item.isin === ref.isin)?.providerSymbol ??
+          null
+        );
       }
       return null;
     })();
@@ -194,20 +196,25 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
       type: "all",
     });
     if (!Array.isArray(payload)) {
-      throw new ProviderError("MALFORMED_RESPONSE", EODHD_PROVIDER_ID, "Réponse search EODHD non-tableau");
+      throw new ProviderError(
+        "MALFORMED_RESPONSE",
+        EODHD_PROVIDER_ID,
+        "Réponse search EODHD non-tableau",
+      );
     }
-    return (payload as EodhdSearchRow[])
-      .flatMap((row): InstrumentCandidate[] => {
-        const code = stringValue(row.Code);
-        const exchange = stringValue(row.Exchange);
-        const name = stringValue(row.Name);
-        const type = stringValue(row.Type);
-        const currency = currencyFrom(row.Currency);
-        if (code === null || exchange === null || name === null || type === null || currency === null) return [];
-        const assetType = assetTypeFromEodhd(type);
-        if (assetType === null) return [];
-        if (query.assetTypes !== undefined && !query.assetTypes.includes(assetType)) return [];
-        return [{
+    return (payload as EodhdSearchRow[]).flatMap((row): InstrumentCandidate[] => {
+      const code = stringValue(row.Code);
+      const exchange = stringValue(row.Exchange);
+      const name = stringValue(row.Name);
+      const type = stringValue(row.Type);
+      const currency = currencyFrom(row.Currency);
+      if (code === null || exchange === null || name === null || type === null || currency === null)
+        return [];
+      const assetType = assetTypeFromEodhd(type);
+      if (assetType === null) return [];
+      if (query.assetTypes !== undefined && !query.assetTypes.includes(assetType)) return [];
+      return [
+        {
           provider: EODHD_PROVIDER_ID,
           providerSymbol: `${code}.${exchange}`,
           name,
@@ -218,8 +225,9 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
           figi: null,
           countryCode: stringValue(row.Country),
           confidence: confidence(row, needle.toLowerCase()),
-        }];
-      });
+        },
+      ];
+    });
   }
 
   async function resolveViaSearch(ref: InstrumentReference): Promise<ResolvedInstrument | null> {
@@ -230,22 +238,25 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
       if (ticker === undefined) return null;
       const candidates = await searchLive({ text: ticker, limit: 50 });
       const hit = candidates.find((candidate) => candidate.providerSymbol === ref.symbol);
-      return hit === undefined ? null : {
-        provider: EODHD_PROVIDER_ID,
-        providerSymbol: hit.providerSymbol,
-        name: hit.name,
-        assetType: hit.assetType,
-        currency: hit.currency,
-        exchangeMic: hit.exchangeMic,
-        isin: hit.isin,
-        optionContract: null,
-      };
+      return hit === undefined
+        ? null
+        : {
+            provider: EODHD_PROVIDER_ID,
+            providerSymbol: hit.providerSymbol,
+            name: hit.name,
+            assetType: hit.assetType,
+            currency: hit.currency,
+            exchangeMic: hit.exchangeMic,
+            isin: hit.isin,
+            optionContract: null,
+          };
     }
     const text = ref.kind === "ISIN" ? ref.isin : ref.ticker;
     const candidates = await searchLive({ text, limit: 50 });
-    const exact = ref.kind === "ISIN"
-      ? candidates.filter((item) => item.isin === ref.isin)
-      : candidates.filter((item) => item.providerSymbol.split(".")[0] === ref.ticker);
+    const exact =
+      ref.kind === "ISIN"
+        ? candidates.filter((item) => item.isin === ref.isin)
+        : candidates.filter((item) => item.providerSymbol.split(".")[0] === ref.ticker);
     if (exact.length !== 1) return null;
     const hit = exact[0]!;
     return {
@@ -265,12 +276,17 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
       order: "d",
     });
     if (!Array.isArray(payload) || payload.length === 0) {
-      throw new ProviderError("NOT_FOUND", EODHD_PROVIDER_ID, `Pas d'EOD pour ${instrument.providerSymbol}`);
+      throw new ProviderError(
+        "NOT_FOUND",
+        EODHD_PROVIDER_ID,
+        `Pas d'EOD pour ${instrument.providerSymbol}`,
+      );
     }
     const row = payload[0] as EodhdEodRow;
     const close = numericString(row.close, "close");
     const date = stringValue(row.date);
-    if (date === null) throw new ProviderError("MALFORMED_RESPONSE", EODHD_PROVIDER_ID, "Date EOD absente");
+    if (date === null)
+      throw new ProviderError("MALFORMED_RESPONSE", EODHD_PROVIDER_ID, "Date EOD absente");
     const receivedAt = now().toISOString();
     return {
       instrumentId: instrument.providerSymbol,
@@ -320,9 +336,14 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
 
     async getSnapshot(instrument: ResolvedInstrument): Promise<NormalizedQuote> {
       if (instrument.assetType === "MUTUAL_FUND") return getEodLatest(instrument);
-      const payload = (await requestJson(`real-time/${encodeURIComponent(instrument.providerSymbol)}`)) as EodhdRealtime;
+      const payload = (await requestJson(
+        `real-time/${encodeURIComponent(instrument.providerSymbol)}`,
+      )) as EodhdRealtime;
       const close = numericString(payload.close, "close");
-      const previousClose = payload.previousClose == null ? undefined : numericString(payload.previousClose, "previousClose");
+      const previousClose =
+        payload.previousClose == null
+          ? undefined
+          : numericString(payload.previousClose, "previousClose");
       if (typeof payload.timestamp !== "number") {
         throw new ProviderError("MALFORMED_RESPONSE", EODHD_PROVIDER_ID, "Timestamp EODHD absent");
       }
@@ -337,24 +358,39 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
         freshness: "DELAYED",
         asOf: new Date(payload.timestamp * 1000).toISOString(),
         receivedAt,
-        previousClose,
+        /*
+         * La clé est **omise** quand la valeur est inconnue, jamais posée à
+         * `undefined` : le contrat est déclaré sous `exactOptionalPropertyTypes`,
+         * où « absent » et « présent mais indéfini » sont deux choses
+         * différentes. Absent est celle qui décrit la réalité — le fournisseur
+         * n'a pas donné de clôture précédente.
+         */
+        ...(previousClose === undefined ? {} : { previousClose }),
         marketState: "UNKNOWN",
       };
     },
 
     async getHistory(request: HistoryRequest): Promise<readonly PriceBar[]> {
-      const payload = await requestJson(`eod/${encodeURIComponent(request.instrument.providerSymbol)}`, {
-        from: request.from.slice(0, 10),
-        to: request.to.slice(0, 10),
-        period: "d",
-        order: "a",
-      });
+      const payload = await requestJson(
+        `eod/${encodeURIComponent(request.instrument.providerSymbol)}`,
+        {
+          from: request.from.slice(0, 10),
+          to: request.to.slice(0, 10),
+          period: "d",
+          order: "a",
+        },
+      );
       if (!Array.isArray(payload)) {
-        throw new ProviderError("MALFORMED_RESPONSE", EODHD_PROVIDER_ID, "Historique EODHD invalide");
+        throw new ProviderError(
+          "MALFORMED_RESPONSE",
+          EODHD_PROVIDER_ID,
+          "Historique EODHD invalide",
+        );
       }
       return (payload as EodhdEodRow[]).map((row) => {
         const date = stringValue(row.date);
-        if (date === null) throw new ProviderError("MALFORMED_RESPONSE", EODHD_PROVIDER_ID, "Date EOD absente");
+        if (date === null)
+          throw new ProviderError("MALFORMED_RESPONSE", EODHD_PROVIDER_ID, "Date EOD absente");
         return {
           date,
           open: row.open == null ? null : numericString(row.open, "open"),
@@ -368,12 +404,23 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
 
     async getFxRate(base: CurrencyCode, quote: CurrencyCode): Promise<FxQuote> {
       if (base === quote) {
-        return { base, quote, rate: toDecimalString("1"), provider: EODHD_PROVIDER_ID, asOf: now().toISOString(), freshness: "LIVE" };
+        return {
+          base,
+          quote,
+          rate: toDecimalString("1"),
+          provider: EODHD_PROVIDER_ID,
+          asOf: now().toISOString(),
+          freshness: "LIVE",
+        };
       }
       const payload = (await requestJson(`real-time/${base}${quote}.FOREX`)) as EodhdRealtime;
       const rate = numericString(payload.close, "close");
       if (typeof payload.timestamp !== "number") {
-        throw new ProviderError("MALFORMED_RESPONSE", EODHD_PROVIDER_ID, "Timestamp FX EODHD absent");
+        throw new ProviderError(
+          "MALFORMED_RESPONSE",
+          EODHD_PROVIDER_ID,
+          "Timestamp FX EODHD absent",
+        );
       }
       return {
         base,

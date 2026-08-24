@@ -30,6 +30,7 @@ Les fournisseurs sont remplaçables. Aucune logique vendeur dans l'UI.
 ## 2. Sources officielles
 
 ### EODHD
+
 - Docs générales : https://eodhd.com/financial-apis/
 - WebSocket stocks / FX / crypto : https://eodhd.com/financial-apis/new-real-time-data-api-websockets
 - SDK Node/TypeScript officiel : https://github.com/EodHistoricalData/EODHD-APIs-Node-Financial-Library
@@ -37,6 +38,7 @@ Les fournisseurs sont remplaçables. Aucune logique vendeur dans l'UI.
 - ID mapping : https://eodhd.com/financial-apis/id-mapping-api-cusip-isin-figi-lei-cik-%E2%86%94-symbol
 
 Endpoints WS documentés :
+
 - equities trades : `wss://ws.eodhistoricaldata.com/ws/us?api_token=...`
 - equities quotes : `wss://ws.eodhistoricaldata.com/ws/us-quote?api_token=...`
 - FX : `wss://ws.eodhistoricaldata.com/ws/forex?api_token=...`
@@ -45,6 +47,7 @@ Endpoints WS documentés :
 Le token `demo` peut être utilisé uniquement sur les symboles officiellement autorisés par EODHD pour vérifier le transport. Ne jamais conclure qu'un plan production couvre tout à partir de la démo.
 
 ### Twelve Data
+
 - Docs : https://twelvedata.com/docs
 - Market data : https://twelvedata.com/market-data
 - Pricing : https://twelvedata.com/pricing
@@ -54,6 +57,7 @@ Le token `demo` peut être utilisé uniquement sur les symboles officiellement a
 Couverture déclarée : stocks, ETF, mutual funds, FX, crypto, commodities, reference data. Toujours vérifier échange, licence et plan exact avant `LIVE`.
 
 ### Massive
+
 - Docs : https://massive.com/docs
 - WebSocket quickstart : https://massive.com/docs/websocket/quickstart
 - Stocks WS : https://massive.com/docs/websocket/stocks/overview
@@ -64,6 +68,7 @@ Couverture déclarée : stocks, ETF, mutual funds, FX, crypto, commodities, refe
 - OpenAPI specs : https://github.com/massive-com/platform-open-api-specs
 
 WebSocket :
+
 - delayed : `wss://delayed.massive.com/<asset-class>`
 - real-time : `wss://socket.massive.com/<asset-class>`
 - auth : `{ "action": "auth", "params": "API_KEY" }`
@@ -71,17 +76,20 @@ WebSocket :
 Ne jamais utiliser le host real-time si le plan n'y donne pas droit, et ne jamais labelliser un flux delayed comme live.
 
 ### CoinGecko
+
 - Docs : https://docs.coingecko.com/
 - Pricing : https://www.coingecko.com/en/api/pricing
 
 Utiliser les `coin id` CoinGecko comme identité crypto, jamais le ticker seul. `ABC` peut désigner plusieurs tokens.
 
 ### OpenFIGI
+
 - Docs : https://www.openfigi.com/api/documentation
 
 Usage : identité uniquement (ISIN/CUSIP/FIGI/etc.). Ce n'est jamais une source de prix.
 
 ### FINRA TRACE
+
 - Developer Portal : https://developer.finra.org/
 - Fixed income API : https://developer.finra.org/node/1171
 - TRACE : https://www.finra.org/filing-reporting/trace/data
@@ -89,6 +97,7 @@ Usage : identité uniquement (ISIN/CUSIP/FIGI/etc.). Ce n'est jamais une source 
 TRACE est transactionnel OTC. Un dernier trade n'est pas un bid/ask ferme. Afficher l'âge de la transaction et le type de source.
 
 ### Fallbacks
+
 - Alpha Vantage : https://www.alphavantage.co/documentation/
 - Finnhub : https://finnhub.io/docs/api
 - FactSet Funds : https://developer.factset.com/api-catalog/factset-funds-api
@@ -135,12 +144,15 @@ Ce routage est une hypothèse de départ, pas une vérité figée. Le rapport de
 ## 5. Modes
 
 ### mock
+
 Fixtures déterministes uniquement. CI standard.
 
 ### demo
+
 Vrais endpoints de démonstration officiels. Sert à prouver transport, parsing, timestamps, reconnexion et UX. Ne prouve pas la couverture de l'abonnement final.
 
 ### live
+
 Clés réelles + plan/licence vérifiés. Un adaptateur ne peut annoncer `LIVE` que si la source le prouve par ses timestamps et les droits du plan.
 
 ## 6. Tests réels minimum avant activation
@@ -197,27 +209,35 @@ Ne jamais logger clé API, payload d'auth ou token gateway.
 ## 9. Règles par actif
 
 ### Actions / ETF
+
 Trade ou midpoint selon stratégie documentée. Exchange et devise obligatoires.
 
 ### Mutual funds
+
 NAV uniquement. ISIN + classe de parts + devise + date de NAV. Pas de faux intraday.
 
 ### Options
+
 Contrat exact : underlying, call/put, expiration, strike, multiplier, symbole fournisseur. Midpoint si bid/ask valides, sinon dernier trade selon règles existantes.
 
 ### Crypto
+
 Stocker identifiant canonique et source. Pour prix agrégé, afficher `aggregated`; pour venue spécifique, stocker venue/exchange.
 
 ### FX
+
 Paire exacte et direction explicite. Triangulation seulement si nécessaire et testée.
 
 ### Futures
+
 Racine + mois/année/expiration + multiplier. Ne pas utiliser un continuous contract pour valoriser une position réelle sauf si la position elle-même est définie ainsi.
 
 ### Commodities
+
 Distinguer spot/reference d'un contrat future.
 
 ### Bonds
+
 CUSIP/ISIN/FIGI selon disponibilité. Afficher type de prix (trade/quote/evaluated), source et âge. TRACE ≠ firm quote.
 
 ## 10. Activation

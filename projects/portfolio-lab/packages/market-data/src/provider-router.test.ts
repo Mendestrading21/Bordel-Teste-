@@ -85,7 +85,9 @@ describe("ProviderRouter", () => {
         throw new ProviderError("NOT_FOUND", "primary", "not found");
       },
     });
-    const backup = provider("backup", { resolve: async () => ({ ...instrument, provider: "backup" }) });
+    const backup = provider("backup", {
+      resolve: async () => ({ ...instrument, provider: "backup" }),
+    });
 
     const router = new ProviderRouter([primary, backup]);
     const result = await router.resolve({ kind: "TICKER", ticker: "AAPL" });
@@ -101,7 +103,9 @@ describe("ProviderRouter", () => {
         throw new ProviderError("UNAUTHORIZED", "primary", "bad key");
       },
     });
-    const backup = provider("backup", { resolve: async () => ({ ...instrument, provider: "backup" }) });
+    const backup = provider("backup", {
+      resolve: async () => ({ ...instrument, provider: "backup" }),
+    });
 
     const router = new ProviderRouter([primary, backup]);
     await expect(router.resolve({ kind: "TICKER", ticker: "AAPL" })).rejects.toMatchObject({
@@ -111,13 +115,20 @@ describe("ProviderRouter", () => {
   });
 
   it("respecte les priorités configurées", async () => {
-    const first = provider("first", { resolve: async () => ({ ...instrument, provider: "first" }) });
-    const second = provider("second", { resolve: async () => ({ ...instrument, provider: "second" }) });
+    const first = provider("first", {
+      resolve: async () => ({ ...instrument, provider: "first" }),
+    });
+    const second = provider("second", {
+      resolve: async () => ({ ...instrument, provider: "second" }),
+    });
 
-    const router = new ProviderRouter([first, second], [
-      { providerId: "second", priority: 0, enabled: true },
-      { providerId: "first", priority: 10, enabled: true },
-    ]);
+    const router = new ProviderRouter(
+      [first, second],
+      [
+        { providerId: "second", priority: 0, enabled: true },
+        { providerId: "first", priority: 10, enabled: true },
+      ],
+    );
 
     const result = await router.resolve({ kind: "TICKER", ticker: "AAPL" });
     expect(result.instrument.provider).toBe("second");

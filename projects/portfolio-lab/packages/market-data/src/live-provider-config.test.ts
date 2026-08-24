@@ -8,7 +8,7 @@ describe("live provider configuration", () => {
     });
 
     expect(config.marketDataMode).toBe("mock");
-    expect(config.providers.eodhd?.apiKeyPresent).toBe(true);
+    expect(config.providers["eodhd"]?.apiKeyPresent).toBe(true);
     expect(JSON.stringify(config)).not.toContain("secret-value");
   });
 
@@ -26,8 +26,6 @@ describe("live provider configuration", () => {
       EODHD_MODE: "live",
     });
 
-    expect(validateLiveProviderConfig(config)).toContain(
-      "eodhd: activé sans clé API configurée",
-    );
+    expect(validateLiveProviderConfig(config)).toContain("eodhd: activé sans clé API configurée");
   });
 });

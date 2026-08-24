@@ -14,18 +14,19 @@ describe("EODHD provider", () => {
     const provider = createEodhdProvider({
       apiToken: "test",
       mode: "live",
-      fetchImpl: async () => response([
-        {
-          Code: "AAPL",
-          Exchange: "US",
-          Name: "Apple Inc",
-          Type: "Common Stock",
-          Country: "USA",
-          Currency: "USD",
-          ISIN: "US0378331005",
-          isPrimary: true,
-        },
-      ]),
+      fetchImpl: async () =>
+        response([
+          {
+            Code: "AAPL",
+            Exchange: "US",
+            Name: "Apple Inc",
+            Type: "Common Stock",
+            Country: "USA",
+            Currency: "USD",
+            ISIN: "US0378331005",
+            isPrimary: true,
+          },
+        ]),
     });
 
     const result = await provider.search({ text: "AAPL" });
@@ -55,12 +56,13 @@ describe("EODHD provider", () => {
       apiToken: "demo",
       mode: "demo",
       now: () => new Date("2026-08-24T08:00:00.000Z"),
-      fetchImpl: async () => response({
-        code: "AAPL.US",
-        timestamp: 1787550000,
-        close: 227.31,
-        previousClose: 225.5,
-      }),
+      fetchImpl: async () =>
+        response({
+          code: "AAPL.US",
+          timestamp: 1787550000,
+          close: 227.31,
+          previousClose: 225.5,
+        }),
     });
     const instrument = await provider.resolve({ kind: "TICKER", ticker: "AAPL" });
     if (instrument === null) throw new Error("Fixture AAPL absente");
@@ -79,7 +81,18 @@ describe("EODHD provider", () => {
       mode: "live",
       fetchImpl: async (url) => {
         if (url.includes("/search/")) {
-          return response([{ Code: "FUND", Exchange: "EUFUND", Name: "Example Fund", Type: "Fund", Country: "LU", Currency: "EUR", ISIN: "LU0000000001", isPrimary: true }]);
+          return response([
+            {
+              Code: "FUND",
+              Exchange: "EUFUND",
+              Name: "Example Fund",
+              Type: "Fund",
+              Country: "LU",
+              Currency: "EUR",
+              ISIN: "LU0000000001",
+              isPrimary: true,
+            },
+          ]);
         }
         return response([{ date: "2026-08-21", open: 101, high: 101, low: 101, close: 101.42 }]);
       },

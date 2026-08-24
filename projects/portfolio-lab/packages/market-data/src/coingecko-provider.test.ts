@@ -3,17 +3,33 @@ import { describe, expect, it } from "vitest";
 import { createCoinGeckoProvider } from "./coingecko-provider.js";
 
 function response(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 describe("CoinGecko provider", () => {
   it("utilise l'ID CoinGecko plutôt qu'un ticker ambigu", async () => {
     const provider = createCoinGeckoProvider({
       mode: "keyless",
-      fetchImpl: async () => response([{ id: "bitcoin", symbol: "btc", name: "Bitcoin", current_price: 65000, market_cap_rank: 1 }]),
+      fetchImpl: async () =>
+        response([
+          {
+            id: "bitcoin",
+            symbol: "btc",
+            name: "Bitcoin",
+            current_price: 65000,
+            market_cap_rank: 1,
+          },
+        ]),
     });
     const result = await provider.search({ text: "BTC", assetTypes: ["CRYPTO"] });
-    expect(result[0]).toMatchObject({ providerSymbol: "bitcoin", assetType: "CRYPTO", currency: "USD" });
+    expect(result[0]).toMatchObject({
+      providerSymbol: "bitcoin",
+      assetType: "CRYPTO",
+      currency: "USD",
+    });
   });
 
   it("normalise le prix et son timestamp sans prétendre au tick-by-tick", async () => {
@@ -38,7 +54,13 @@ describe("CoinGecko provider", () => {
   });
 
   it("ne transforme jamais une erreur 429 en donnée fictive", async () => {
-    const provider = createCoinGeckoProvider({ mode: "keyless", fetchImpl: async () => response({}, 429) });
-    await expect(provider.search({ text: "BTC" })).rejects.toMatchObject({ kind: "RATE_LIMITED", provider: "coingecko" });
+    const provider = createCoinGeckoProvider({
+      mode: "keyless",
+      fetchImpl: async () => response({}, 429),
+    });
+    await expect(provider.search({ text: "BTC" })).rejects.toMatchObject({
+      kind: "RATE_LIMITED",
+      provider: "coingecko",
+    });
   });
 });
