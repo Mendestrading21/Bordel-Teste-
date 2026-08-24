@@ -12,8 +12,8 @@ import {
 } from "@portfolio-lab/domain";
 import type { QuoteFreshness } from "@portfolio-lab/domain";
 
-import { ASSET_ICON } from "./asset-icon";
 import { FreshnessBadge } from "./freshness-badge";
+import { InstrumentAvatar } from "./instrument-avatar";
 import { Money, Percent, Unavailable } from "./money";
 import { Card, cx } from "./ui";
 
@@ -48,22 +48,6 @@ export type PositionRow = {
  * Purement visuel, donc `aria-hidden` : le nom complet et la classe d'actifs
  * suivent immédiatement dans le texte de la ligne.
  */
-function InstrumentAvatar({
-  symbol,
-  assetType,
-}: Readonly<{ symbol: string | null; assetType: AssetType }>): React.JSX.Element {
-  const label =
-    symbol === null || symbol.trim() === "" ? ASSET_ICON[assetType] : symbol.slice(0, 5);
-  return (
-    <span
-      aria-hidden="true"
-      className="grid size-9 shrink-0 place-items-center rounded-token-sm bg-elevated text-[11px] font-medium text-secondary tabular-nums"
-    >
-      {label}
-    </span>
-  );
-}
-
 /** Filtres proposés, dans l'ordre de l'architecture d'information. */
 const FILTERS: readonly { key: AssetType | "ALL"; label: string; icon: string }[] = [
   { key: "ALL", label: "Toutes", icon: "" },

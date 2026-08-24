@@ -178,6 +178,31 @@ test.describe("liste des positions", () => {
     await expect(fund).toContainText("Dernière NAV");
   });
 
+  test("aucune pastille d'identité ne rogne son symbole", async ({ page }) => {
+    await page.goto("/positions");
+
+    /*
+     * Un symbole plus large que sa pastille était rogné des deux côtés et se
+     * lisait comme un défaut d'affichage. Le texte du DOM reste complet même
+     * quand il déborde : c'est la largeur de défilement de la pastille qui
+     * trahit la coupe.
+     */
+    const debordements = await page
+      .getByRole("main")
+      .locator("li span[aria-hidden='true']")
+      .evaluateAll((nodes) =>
+        nodes
+          .filter((node) => node.getClientRects().length > 0)
+          .map((node) => ({
+            texte: (node.textContent ?? "").trim(),
+            deborde: node.scrollWidth - node.clientWidth,
+          }))
+          .filter((entry) => entry.deborde > 0),
+      );
+
+    expect(debordements).toEqual([]);
+  });
+
   test("la recherche réduit la liste au titre saisi", async ({ page }) => {
     await page.goto("/positions");
     const items = page.getByRole("main").getByRole("listitem");

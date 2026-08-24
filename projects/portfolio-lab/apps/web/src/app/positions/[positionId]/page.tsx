@@ -10,6 +10,7 @@ import {
 } from "@portfolio-lab/domain";
 
 import { ASSET_ICON } from "@/components/asset-icon";
+import { InstrumentAvatar } from "@/components/instrument-avatar";
 import { DeletePositionForm } from "@/components/delete-position-form";
 import { EditPositionForm } from "@/components/edit-position-form";
 import { DemoBanner } from "@/components/demo-banner";
@@ -64,12 +65,7 @@ export default async function PositionDetailPage({
 
       {/* 1. Identité de l'instrument. */}
       <header className="flex items-start gap-3">
-        <span
-          aria-hidden="true"
-          className="grid size-11 shrink-0 place-items-center rounded-token-md bg-elevated text-sm"
-        >
-          {position.shortName === null ? ASSET_ICON[assetType] : position.shortName.slice(0, 5)}
-        </span>
+        <InstrumentAvatar symbol={position.shortName} assetType={assetType} size="md" />
         <div className="min-w-0">
           <h1 className="text-lg leading-tight font-semibold text-primary">
             {position.instrumentName}

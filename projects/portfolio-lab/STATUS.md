@@ -92,6 +92,15 @@ intouchables ».
   interdisent qu'une valeur en millisecondes la recopie en dur — ce qui
   rendrait le réglage système inopérant pour toute l'application d'un coup.
 
+L'audit visuel final a trouvé un dernier défaut : **les pastilles d'identité
+rognaient leur symbole**. Un symbole de cinq caractères débordait de sa pastille
+et se retrouvait coupé des deux côtés — `DEMOW` de huit pixels — ce qui se lit
+comme un défaut d'affichage. Le symbole est désormais abrégé à quatre
+caractères, la pastille est partagée entre la liste et la fiche, et un parcours
+E2E compare la largeur de défilement de chaque pastille à sa largeur visible.
+Vérifié par mutation : il nomme les symboles fautifs et de combien ils
+débordent.
+
 Vérifié sans modification nécessaire : contraste AA sur les quatre fonds pour
 les neuf couleurs porteuses de texte (36 combinaisons, déjà couvertes depuis
 DS-01), anneau de focus visible, `viewport-fit: cover` et `safe-area-inset`,
