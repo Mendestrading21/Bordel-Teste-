@@ -42,14 +42,22 @@ function Section({
   );
 }
 
+/**
+ * Ligne « libellé — valeur » des réglages.
+ *
+ * Empilée sous 640 px, alignée à droite au-delà. Sur 390 px, une valeur longue
+ * comme « Démonstration locale — données fictives » forçait le libellé et la
+ * valeur à se replier **tous les deux** sur deux lignes, ce qui donnait quatre
+ * fragments désalignés pour une seule information.
+ */
 function SettingRow({
   label,
   value,
 }: Readonly<{ label: string; value: string }>): React.JSX.Element {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-subtle py-2.5 last:border-b-0">
+    <div className="border-b border-subtle py-2.5 last:border-b-0 sm:flex sm:items-baseline sm:justify-between sm:gap-4">
       <dt className="text-sm text-secondary">{label}</dt>
-      <dd className="pl-numeric text-right text-sm text-primary">{value}</dd>
+      <dd className="pl-numeric mt-0.5 text-sm text-primary sm:mt-0 sm:text-right">{value}</dd>
     </div>
   );
 }

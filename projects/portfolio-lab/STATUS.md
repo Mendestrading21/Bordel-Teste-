@@ -110,6 +110,12 @@ les parts positives et conservant le moins d'une contribution négative au P&L ;
 `formatPercent` reste réservé aux variations. Quatre tests unitaires fixent la
 distinction.
 
+Troisième défaut, de lisibilité : sur 390 px, une valeur longue comme
+« Démonstration locale — données fictives » forçait le libellé **et** la valeur
+à se replier chacun sur deux lignes, ce qui donnait quatre fragments désalignés
+pour une seule information. Les lignes de réglage s'empilent désormais sous
+640 px et retrouvent leur alignement à droite au-delà.
+
 Vérifié sans modification nécessaire : contraste AA sur les quatre fonds pour
 les neuf couleurs porteuses de texte (36 combinaisons, déjà couvertes depuis
 DS-01), anneau de focus visible, `viewport-fit: cover` et `safe-area-inset`,
