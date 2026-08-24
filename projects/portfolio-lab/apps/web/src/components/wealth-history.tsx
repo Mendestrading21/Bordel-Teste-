@@ -58,10 +58,11 @@ export function WealthHistory({
                   aria-pressed={selected}
                   onClick={() => setIndex(position)}
                   className={cx(
-                    "min-h-[34px] rounded-token-pill px-2.5 text-xs transition-colors",
+                    // Cible tactile réglementaire : ces onglets étaient à 34 px,
+                    // sous le minimum de 44 px, et se ratent au pouce.
+                    "min-h-[var(--pl-touch-target)] rounded-token-pill px-3 text-xs transition-colors",
                     selected ? "bg-accent/15 text-accent" : "text-tertiary hover:text-primary",
                   )}
-                  style={{ transitionDuration: "var(--pl-transition-fast)" }}
                 >
                   {period.label}
                 </button>

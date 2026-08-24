@@ -38,11 +38,7 @@ export function Button({
 }> &
   React.ButtonHTMLAttributes<HTMLButtonElement>): React.JSX.Element {
   return (
-    <button
-      className={buttonClass(variant, size, className)}
-      style={{ transitionDuration: "var(--pl-transition-fast)" }}
-      {...rest}
-    >
+    <button className={buttonClass(variant, size, className)} {...rest}>
       {children}
     </button>
   );
@@ -63,11 +59,7 @@ export function ButtonLink({
   children: React.ReactNode;
 }>): React.JSX.Element {
   return (
-    <Link
-      href={href}
-      className={buttonClass(variant, size, className)}
-      style={{ transitionDuration: "var(--pl-transition-fast)" }}
-    >
+    <Link href={href} className={buttonClass(variant, size, className)}>
       {children}
     </Link>
   );

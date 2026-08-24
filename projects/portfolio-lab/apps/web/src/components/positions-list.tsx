@@ -199,7 +199,6 @@ export function PositionsList({
                     ? "border-accent bg-accent/15 text-accent"
                     : "border-subtle text-secondary hover:text-primary",
                 )}
-                style={{ transitionDuration: "var(--pl-transition-fast)" }}
               >
                 {entry.icon === "" ? null : <span aria-hidden="true">{entry.icon} </span>}
                 {entry.label}
@@ -240,7 +239,6 @@ export function PositionsList({
               <Link
                 href={`/positions/${row.positionId}`}
                 className="block px-4 py-3 transition-colors hover:bg-elevated"
-                style={{ transitionDuration: "var(--pl-transition-fast)" }}
               >
                 <div className="flex items-center gap-3">
                   <InstrumentAvatar symbol={row.symbol} assetType={row.assetType} />

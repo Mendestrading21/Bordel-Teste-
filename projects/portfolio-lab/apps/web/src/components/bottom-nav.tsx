@@ -44,14 +44,12 @@ export function BottomNav(): React.JSX.Element {
                   "text-[11px] font-medium transition-colors",
                   active ? "text-accent" : "text-tertiary hover:text-primary",
                 )}
-                style={{ transitionDuration: "var(--pl-transition-fast)" }}
               >
                 <span
                   className={cx(
                     "flex h-7 w-12 items-center justify-center rounded-token-pill transition-colors",
                     active ? "bg-accent/15" : "bg-transparent",
                   )}
-                  style={{ transitionDuration: "var(--pl-transition-fast)" }}
                 >
                   <NavIcon name={item.label} active={active} />
                 </span>

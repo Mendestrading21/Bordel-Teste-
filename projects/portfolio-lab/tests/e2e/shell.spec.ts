@@ -137,3 +137,53 @@ test.describe("sécurité", () => {
     }
   });
 });
+
+test.describe("accessibilité", () => {
+  test("respecte « animations réduites » sur les éléments réellement animés", async ({
+    browser,
+  }) => {
+    /*
+     * Le réglage système doit valoir pour tout l'écran, pas seulement pour les
+     * composants qui pensaient à réécrire leur durée. Le test lit la durée
+     * calculée par le navigateur, pas la feuille de style : c'est la seule
+     * mesure qui prouve que le réglage arrive jusqu'au pixel.
+     */
+    const context = await browser.newContext({ reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.goto("/");
+
+    const durations = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("*")]
+        .map((node) => getComputedStyle(node))
+        .filter((style) => style.transitionProperty !== "none" && style.transitionProperty !== "")
+        .map((style) => style.transitionDuration),
+    );
+
+    expect(durations.length).toBeGreaterThan(0);
+    for (const duration of durations) {
+      // « 0s » sous toutes ses formes ; toute valeur non nulle est un oubli.
+      expect(duration.split(",").every((part) => Number.parseFloat(part) === 0)).toBe(true);
+    }
+
+    await context.close();
+  });
+
+  test("anime réellement lorsque le réglage ne demande rien", async ({ browser }) => {
+    // Contrôle négatif : sans lui, le test précédent passerait aussi si plus
+    // rien n'était animé nulle part.
+    const context = await browser.newContext({ reducedMotion: "no-preference" });
+    const page = await context.newPage();
+    await page.goto("/");
+
+    const durations = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("*")]
+        .map((node) => getComputedStyle(node))
+        .filter((style) => style.transitionProperty !== "none" && style.transitionProperty !== "")
+        .map((style) => style.transitionDuration),
+    );
+
+    expect(durations.some((duration) => Number.parseFloat(duration) > 0)).toBe(true);
+
+    await context.close();
+  });
+});

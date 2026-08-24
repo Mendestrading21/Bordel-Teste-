@@ -307,6 +307,28 @@ test.describe("détail d'une position", () => {
     await expect(page.getByText("1'240.00")).toBeVisible();
   });
 
+  test("la provenance s'ouvre au clavier, sans souris", async ({ page }) => {
+    await page.goto("/positions");
+    await page.getByRole("link", { name: /Démo Technologies CALL/ }).click();
+
+    /*
+     * Les dépliants portent `list-none` pour retirer le triangle natif. Le
+     * retrait du marqueur ne doit pas emporter le focus avec lui : un dépliant
+     * qu'on ne peut pas ouvrir au clavier rend son contenu inatteignable, et
+     * ce contenu est ici la provenance du chiffre affiché.
+     */
+    const details = page.locator("details").filter({ hasText: "Détails de valorisation" });
+    const summary = details.locator("summary");
+
+    await summary.focus();
+    await expect(summary).toBeFocused();
+    await expect(details).not.toHaveAttribute("open", "");
+
+    await page.keyboard.press("Enter");
+    await expect(details).toHaveAttribute("open", "");
+    await expect(page.getByText("Fournisseur", { exact: true })).toBeVisible();
+  });
+
   test("répond 404 pour une position inexistante", async ({ page }) => {
     const response = await page.goto("/positions/11111111-1111-4111-8111-111111111111");
     expect(response?.status()).toBe(404);
@@ -618,6 +640,42 @@ test.describe("comptes", () => {
     await ligne.getByRole("button", { name: /Archiver/ }).click();
     await expect(page.getByText(unique, { exact: true })).toHaveCount(0);
   });
+});
+
+test.describe("cibles tactiles", () => {
+  /*
+   * Balayage de tous les écrans peuplés.
+   *
+   * Les parcours existants ne vérifiaient que la navigation basse. Les écrans
+   * en ont pourtant accumulé beaucoup d'autres — chips de filtre, onglets de
+   * période, cartes du parcours d'ajout — et un onglet à 34 px passait
+   * inaperçu jusqu'à ce qu'on le rate au pouce.
+   */
+  for (const route of ["/", "/positions", "/ajouter", "/analyse", "/reglages"]) {
+    test(`chaque commande de ${route} atteint 44 px`, async ({ page }) => {
+      await page.goto(route);
+
+      const petites = await page
+        .getByRole("main")
+        .locator("button, a[href], summary, input:not([type='hidden']), select")
+        .evaluateAll((nodes) =>
+          nodes
+            .filter((node) => node.getClientRects().length > 0)
+            .map((node) => ({
+              hauteur: node.getBoundingClientRect().height,
+              texte: (node.textContent ?? "").trim().slice(0, 40),
+            }))
+            /*
+             * Les liens à l'intérieur d'un paragraphe suivent la hauteur de
+             * ligne du texte : la règle WCAG 2.5.5 les excepte explicitement,
+             * et les grossir casserait la prose.
+             */
+            .filter((entry) => entry.hauteur > 0 && entry.hauteur < 44),
+        );
+
+      expect(petites).toEqual([]);
+    });
+  }
 });
 
 test.describe("ajout d'une position", () => {

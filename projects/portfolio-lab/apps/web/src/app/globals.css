@@ -36,6 +36,20 @@
   --font-sans: var(--pl-font-sans);
   --font-numeric: var(--pl-font-numeric);
 
+  /*
+   * Durée par défaut de **toutes** les transitions Tailwind.
+   *
+   * Sans cette ligne, `transition-colors` et consorts retombent sur les 150 ms
+   * codés en dur par Tailwind. Le token, lui, passe à `0ms` sous
+   * `prefers-reduced-motion` — mais seuls les composants qui pensaient à
+   * réécrire `transitionDuration` en style inline en profitaient. Les autres
+   * continuaient d'animer malgré le réglage système, et rien ne le signalait.
+   *
+   * En rattachant la valeur par défaut au token, le réglage est respecté
+   * partout, y compris par les composants écrits plus tard.
+   */
+  --default-transition-duration: var(--pl-transition-fast);
+
   --radius-token-sm: var(--pl-radius-sm);
   --radius-token-md: var(--pl-radius-md);
   --radius-token-lg: var(--pl-radius-lg);

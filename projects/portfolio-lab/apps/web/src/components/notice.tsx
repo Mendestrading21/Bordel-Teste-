@@ -111,7 +111,6 @@ export function Notice({
             <span
               aria-hidden="true"
               className="shrink-0 text-xs text-tertiary transition-transform group-open:rotate-180"
-              style={{ transitionDuration: "var(--pl-transition-fast)" }}
             >
               ⌄
             </span>
