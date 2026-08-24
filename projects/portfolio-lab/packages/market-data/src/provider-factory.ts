@@ -1,6 +1,7 @@
 import { createCoinGeckoProvider } from "./coingecko-provider.js";
 import type { MarketDataProvider } from "./contract.js";
 import { createEodhdProvider } from "./eodhd-provider.js";
+import { createMassiveProvider } from "./massive-provider.js";
 import { readLiveProviderConfig, validateLiveProviderConfig } from "./live-provider-config.js";
 import { createTwelveDataProvider } from "./twelve-data-provider.js";
 
@@ -52,6 +53,39 @@ export function createConfiguredProviders(
           timeoutMs,
         }),
       );
+    }
+  }
+
+  if (config.providers["massive"]?.enabled) {
+    const mode = config.providers["massive"].mode;
+    const apiKey = env["MASSIVE_API_KEY"];
+    if (apiKey === undefined) {
+      /*
+       * Massive n'expose aucun mode démo public : sans clé, il n'y a rien à
+       * instancier. Le signaler explicitement vaut mieux qu'un fournisseur
+       * absent de la liste, que rien ne distinguerait d'un oubli de
+       * configuration.
+       */
+      issues.push("massive: activé sans MASSIVE_API_KEY, et aucun mode démo n'existe");
+    } else if (mode === "live") {
+      providers.push(
+        createMassiveProvider({
+          apiKey,
+          timeoutMs,
+          /*
+           * La fraîcheur vient du plan souscrit. Les endpoints différés et
+           * temps réel renvoient la même forme : la déduire de la réponse
+           * serait une invention.
+           */
+          freshness: env["MASSIVE_FRESHNESS"] === "LIVE" ? "LIVE" : "DELAYED",
+          delayMinutes:
+            env["MASSIVE_DELAY_MINUTES"] === undefined
+              ? null
+              : Number.parseInt(env["MASSIVE_DELAY_MINUTES"], 10),
+        }),
+      );
+    } else {
+      issues.push(`massive: mode ${mode} non supporté — seul « live » existe`);
     }
   }
 
