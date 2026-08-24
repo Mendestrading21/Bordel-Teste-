@@ -124,7 +124,7 @@ export function WealthChart({
         <polyline
           points={plot.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ")}
           fill="none"
-          stroke="var(--pl-accent-copper)"
+          stroke="var(--pl-accent-lime)"
           strokeWidth={2}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -149,7 +149,7 @@ export function WealthChart({
                 cx={point.x}
                 cy={point.y}
                 r={4}
-                fill="var(--pl-accent-copper)"
+                fill="var(--pl-accent-lime)"
               />
             ))}
       </svg>
@@ -170,7 +170,7 @@ export function WealthChart({
        * annoncée sans qu'aucune interaction soit nécessaire.
        */}
       <details className="mt-3">
-        <summary className="inline-flex min-h-[var(--pl-touch-target)] cursor-pointer items-center text-sm text-copper">
+        <summary className="inline-flex min-h-[var(--pl-touch-target)] cursor-pointer items-center text-sm text-accent">
           Valeurs chiffrées ({history.length} point{history.length > 1 ? "s" : ""})
         </summary>
         <div className="mt-2 overflow-x-auto">

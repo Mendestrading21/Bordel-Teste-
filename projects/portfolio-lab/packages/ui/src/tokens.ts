@@ -1,34 +1,57 @@
 /**
- * Tokens visuels de PortfolioLab — direction « obsidienne sombre, cuivre discret ».
+ * Tokens visuels de PortfolioLab — direction « bleu-nuit premium, accent lime ».
  *
- * Chaque couleur de texte, d'accent et d'état a été vérifiée à un contraste
- * >= 4.5:1 sur `backgroundCanvas` (WCAG AA texte normal). Voir
- * `contrast.test.ts` qui rejoue le calcul et fait échouer la CI si une valeur
+ * Design V2. Trois évolutions par rapport à la direction obsidienne d'origine :
+ *
+ * 1. le fond passe d'un gris neutre à un **bleu-nuit** : la profondeur vient de
+ *    la teinte, pas d'ombres portées, ce qui reste net sur écran OLED ;
+ * 2. **trois** niveaux de surface au lieu de deux, pour hiérarchiser sans
+ *    empiler des bordures ;
+ * 3. l'accent devient une **chartreuse adoucie**. Le cuivre `#C87F4A` était à
+ *    une teinte de l'ambre d'avertissement `#E0A458` : deux rôles opposés — «
+ *    fais ceci » et « attention » — se ressemblaient.
+ *
+ * `positive` reste vert, distinct de l'accent : sans quoi un bouton d'action et
+ * un gain porteraient la même couleur.
+ *
+ * Chaque couleur de texte, d'accent et d'état atteint un contraste >= 4.5:1 sur
+ * les **quatre** fonds, y compris `backgroundSurface3`, le plus clair. Voir
+ * `contrast.test.ts`, qui rejoue le calcul et fait échouer la CI si une valeur
  * dérive.
  */
 export const colorTokens = {
-  /** Fond de page, l'obsidienne de référence. */
-  backgroundCanvas: "#0B0E11",
-  /** Fond des cartes et sections. */
-  backgroundSurface: "#12161B",
-  /** Fond des éléments survolés, menus et feuilles modales. */
-  backgroundElevated: "#1A2027",
+  /** Fond de page, bleu-nuit profond. */
+  backgroundCanvas: "#060D18",
+  /** Surface 1 — cartes et sections posées sur le fond. */
+  backgroundSurface: "#0E1725",
+  /** Surface 2 — champs, éléments survolés, feuilles modales. */
+  backgroundElevated: "#16202F",
+  /** Surface 3 — pastilles et éléments posés sur une surface 2. */
+  backgroundSurface3: "#1D2839",
   /** Séparateurs discrets ; jamais utilisé pour du texte. */
-  borderSubtle: "#262E37",
+  borderSubtle: "#1E2836",
+  /** Bordure marquée : contour d'un champ actif, carte mise en avant. */
+  borderStrong: "#2C3A4D",
   /** Texte principal. */
-  textPrimary: "#ECEFF3",
+  textPrimary: "#EEF2F7",
   /** Texte secondaire, labels et métadonnées. */
-  textSecondary: "#9AA6B2",
-  /** Accent cuivre : titres courts, actifs de navigation, focus. Jamais de long paragraphe. */
-  accentCopper: "#C87F4A",
-  /** Performance positive. */
-  positive: "#4FB286",
+  textSecondary: "#9FB0C4",
+  /** Texte tertiaire : micro-labels, unités, mentions de bas de carte. */
+  textTertiary: "#7E90A8",
+  /** Accent chartreuse : CTA principal, onglet actif, focus, point clé d'un graphique. */
+  accentLime: "#C6F04A",
+  /** Texte posé **sur** l'accent. Presque noir : la chartreuse est très claire. */
+  accentForeground: "#0A1005",
+  /** Performance positive. Volontairement distinct de l'accent. */
+  positive: "#63D89A",
   /** Performance négative. */
-  negative: "#E06C68",
+  negative: "#F2607E",
+  /** Information : série secondaire d'un graphique. Jamais un état métier. */
+  info: "#4CC9F0",
   /** Avertissement (donnée différée, marché fermé). */
-  warning: "#E0A458",
+  warning: "#F0B450",
   /** Donnée périmée ou indisponible. */
-  stale: "#8C93A1",
+  stale: "#8290A4",
 } as const;
 
 export type ColorToken = keyof typeof colorTokens;
@@ -44,10 +67,23 @@ export const spacingTokens = {
   "3xl": 48,
 } as const;
 
+/**
+ * Rayons, par **rôle** et non par taille abstraite.
+ *
+ * Les valeurs suivent les plages du système de design V2 : un contrôle est plus
+ * arrondi qu'un petit badge, une carte plus qu'un contrôle, et le bloc dominant
+ * de l'accueil plus que tout le reste. `radius.test.ts` rejoue ces plages.
+ */
 export const radiusTokens = {
-  sm: 6,
-  md: 10,
-  lg: 16,
+  /** Petits éléments posés dans un bloc : messages, encarts secondaires. */
+  sm: 10,
+  /** Contrôles : boutons, champs de saisie, onglets. */
+  md: 16,
+  /** Cartes et sections. */
+  lg: 20,
+  /** Bloc dominant d'un écran — le patrimoine total sur l'accueil. */
+  xl: 26,
+  /** Pastilles et puces. */
   pill: 999,
 } as const;
 

@@ -103,7 +103,7 @@ export default async function ReglagesPage(): Promise<React.JSX.Element> {
                 <span className="text-sm font-medium text-primary">{provider.label}</span>
                 <span
                   className={`rounded-token-sm border px-2 py-0.5 text-[11px] ${
-                    provider.usable ? "border-copper/40 text-copper" : "border-stale/50 text-stale"
+                    provider.usable ? "border-accent/40 text-accent" : "border-stale/50 text-stale"
                   }`}
                 >
                   {provider.verificationLabel}

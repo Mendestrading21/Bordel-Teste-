@@ -6,6 +6,7 @@ import { deleteEverythingAction } from "@/lib/data/actions";
 import { DELETION_CONFIRMATION, type ActionResult } from "@/lib/data/validation";
 
 import { FieldError, FormMessage, SubmitButton } from "./form-status";
+import { buttonClass, Card } from "./ui";
 
 const INITIAL: ActionResult = { status: "idle" };
 
@@ -19,7 +20,7 @@ const INITIAL: ActionResult = { status: "idle" };
  */
 export function ExportSection(): React.JSX.Element {
   return (
-    <section className="mt-4 rounded-token-lg border border-subtle bg-surface p-5">
+    <Card as="section" padding="lg" className="mt-4">
       <h2 className="mb-1 text-base font-medium text-primary">Sauvegarde</h2>
       <p className="mb-3 text-sm leading-relaxed text-secondary">
         Le fichier contient vos comptes, vos positions et votre historique patrimonial. Les cours
@@ -32,12 +33,12 @@ export function ExportSection(): React.JSX.Element {
       <a
         href="/api/export"
         download
-        className="inline-flex min-h-[var(--pl-touch-target)] items-center justify-center rounded-token-md border border-copper px-5 text-sm font-medium text-copper transition-colors hover:bg-elevated"
+        className={buttonClass("secondary")}
         style={{ transitionDuration: "var(--pl-transition-fast)" }}
       >
         Télécharger ma sauvegarde
       </a>
-    </section>
+    </Card>
   );
 }
 
@@ -63,7 +64,7 @@ export function DeletionSection(): React.JSX.Element {
   const [armed, setArmed] = useState(false);
 
   return (
-    <section className="mt-4 rounded-token-lg border border-negative/30 bg-surface p-5">
+    <Card as="section" padding="lg" className="mt-4 border-negative/30">
       <h2 className="mb-1 text-base font-medium text-negative">Supprimer toutes mes données</h2>
       <p className="mb-3 text-sm leading-relaxed text-secondary">
         Comptes, positions, contrats d&apos;option et historique patrimonial sont effacés
@@ -93,6 +94,6 @@ export function DeletionSection(): React.JSX.Element {
         </fieldset>
         <FormMessage result={result} />
       </form>
-    </section>
+    </Card>
   );
 }

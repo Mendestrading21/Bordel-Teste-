@@ -8,7 +8,7 @@
  * Encodage PNG minimal (RGBA, non entrelacé) via `zlib`, sans dépendance.
  */
 import { deflateSync } from "node:zlib";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,9 +21,39 @@ const OUT_DIR = join(
   "icons",
 );
 
-const CANVAS = [0x0b, 0x0e, 0x11];
-const COPPER = [0xc8, 0x7f, 0x4a];
-const COPPER_DIM = [0x8a, 0x59, 0x33];
+/*
+ * Les couleurs sont **lues** dans `tokens.css` au lieu d'être recopiées.
+ *
+ * Une icône est le seul élément de l'application qui survit à un changement de
+ * palette sans que rien ne le signale : elle reste sur l'écran d'accueil de
+ * l'iPhone, aux anciennes couleurs, longtemps après la refonte. Lire le token
+ * supprime la possibilité même de cet écart.
+ */
+const TOKENS_CSS = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "..", "packages", "ui", "src", "tokens.css"),
+  "utf8",
+);
+
+/** Lit un token couleur de `tokens.css` et le rend en composantes RVB. */
+function token(name) {
+  const match = new RegExp(`--pl-${name}:\\s*#([0-9a-fA-F]{6});`).exec(TOKENS_CSS);
+  if (match === null) {
+    throw new Error(`Token couleur introuvable dans tokens.css : --pl-${name}`);
+  }
+  const value = Number.parseInt(match[1], 16);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
+}
+
+/** Mélange une couleur vers le fond, pour les barres en retrait. */
+function dim(color, background, ratio) {
+  return color.map((channel, index) =>
+    Math.round(channel * ratio + background[index] * (1 - ratio)),
+  );
+}
+
+export const CANVAS = token("background-canvas");
+export const ACCENT = token("accent-lime");
+export const ACCENT_DIM = dim(ACCENT, CANVAS, 0.55);
 
 function crc32(buffer) {
   let crc = 0xffffffff;
@@ -67,7 +97,8 @@ function encodePng(size, pixels) {
 }
 
 /**
- * Marque PortfolioLab : trois barres cuivre ascendantes sur fond obsidienne.
+ * Marque PortfolioLab : trois barres ascendantes à l'accent, sur le fond de
+ * l'application.
  *
  * `padding` exprime la marge en fraction de la taille. Les icônes `maskable`
  * en demandent davantage, la zone sûre d'Android n'étant que 80 % du carré.
@@ -80,7 +111,7 @@ function drawMark(size, padding) {
   const barWidth = Math.floor((inner - barGap * 2) / 3);
   const baseline = inset + inner;
   const heights = [0.42, 0.68, 1.0].map((ratio) => Math.round(inner * ratio));
-  const colors = [COPPER_DIM, COPPER_DIM, COPPER];
+  const colors = [ACCENT_DIM, ACCENT_DIM, ACCENT];
 
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {

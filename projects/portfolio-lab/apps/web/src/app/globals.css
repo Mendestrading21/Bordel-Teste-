@@ -7,15 +7,29 @@
  * les tests du package `ui`.
  */
 @theme inline {
+  /* Fonds, du plus profond au plus clair. */
   --color-canvas: var(--pl-background-canvas);
   --color-surface: var(--pl-background-surface);
   --color-elevated: var(--pl-background-elevated);
+  --color-raised: var(--pl-background-surface3);
+
+  /* Bordures. */
   --color-subtle: var(--pl-border-subtle);
+  --color-strong: var(--pl-border-strong);
+
+  /* Textes, du plus lisible au plus discret. */
   --color-primary: var(--pl-text-primary);
   --color-secondary: var(--pl-text-secondary);
-  --color-copper: var(--pl-accent-copper);
+  --color-tertiary: var(--pl-text-tertiary);
+
+  /* Accent et texte posé dessus. */
+  --color-accent: var(--pl-accent-lime);
+  --color-accent-foreground: var(--pl-accent-foreground);
+
+  /* États. */
   --color-positive: var(--pl-positive);
   --color-negative: var(--pl-negative);
+  --color-info: var(--pl-info);
   --color-warning: var(--pl-warning);
   --color-stale: var(--pl-stale);
 
@@ -25,6 +39,7 @@
   --radius-token-sm: var(--pl-radius-sm);
   --radius-token-md: var(--pl-radius-md);
   --radius-token-lg: var(--pl-radius-lg);
+  --radius-token-xl: var(--pl-radius-xl);
 }
 
 @layer base {
@@ -69,7 +84,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--pl-accent-copper);
+    outline: 2px solid var(--pl-accent-lime);
     outline-offset: 2px;
   }
 }

@@ -14,9 +14,9 @@ export function DemoBanner({ mode }: Readonly<{ mode: DataMode }>): React.JSX.El
   return (
     <div
       role="note"
-      className="mb-4 rounded-token-md border border-copper/50 bg-elevated px-4 py-3"
+      className="mb-4 rounded-token-md border border-accent/50 bg-elevated px-4 py-3"
     >
-      <p className="text-xs font-semibold tracking-wide text-copper uppercase">
+      <p className="text-xs font-semibold tracking-wide text-accent uppercase">
         Mode démonstration
       </p>
       <p className="mt-1 text-sm leading-relaxed text-secondary">
