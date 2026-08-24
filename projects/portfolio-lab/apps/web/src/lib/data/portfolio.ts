@@ -50,6 +50,8 @@ export type PositionRecord = {
   readonly accountName: string;
   readonly instrumentId: string;
   readonly instrumentName: string;
+  /** Symbole court affiché en tête de ligne ; absent pour un actif sans ticker. */
+  readonly shortName: string | null;
   readonly assetType: string;
   readonly quantity: DecimalString;
   readonly averageCost: DecimalString;
@@ -99,6 +101,7 @@ const POSITIONS_QUERY = `
     a.name                                     as account_name,
     p.instrument_id,
     i.name                                     as instrument_name,
+    i.short_name,
     i.asset_type::text                         as asset_type,
     p.quantity::text                           as quantity,
     p.average_cost::text                       as average_cost,
@@ -119,6 +122,7 @@ type PositionQueryRow = {
   account_name: string;
   instrument_id: string;
   instrument_name: string;
+  short_name: string | null;
   asset_type: string;
   quantity: string;
   average_cost: string;
@@ -174,6 +178,7 @@ export async function loadPortfolioView(): Promise<PortfolioView> {
       accountName: row.account_name,
       instrumentId: row.instrument_id,
       instrumentName: row.instrument_name,
+      shortName: row.short_name,
       assetType: row.asset_type,
       quantity: toDecimalString(row.quantity),
       averageCost: toDecimalString(row.average_cost),

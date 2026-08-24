@@ -30,7 +30,9 @@ export function DeletePositionForm({
           La position est retirée définitivement du portefeuille. Cette action ne peut pas être
           annulée.
         </p>
-        <SubmitButton>Supprimer « {name} »</SubmitButton>
+        <SubmitButton variant="danger" pendingLabel="Suppression…">
+          Supprimer « {name} »
+        </SubmitButton>
         <FormMessage result={result} />
       </div>
     </form>

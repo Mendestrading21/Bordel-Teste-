@@ -4,7 +4,7 @@ Dernière mise à jour : 24 août 2026
 
 ## Phase
 
-**Design V2 — DS-03 : accueil et patrimoine**
+**Design V2 — DS-04 : positions et fiche détaillée**
 
 ## État global
 
@@ -54,14 +54,73 @@ intouchables ».
 | Lot   | Objet                               | État    |
 | ----- | ----------------------------------- | ------- |
 | DS-01 | Tokens et primitives                | terminé |
-| DS-02 | Shell, en-tête, navigation mobile   | à faire |
-| DS-03 | Accueil et patrimoine               | à faire |
-| DS-04 | Positions et fiche détaillée        | à faire |
+| DS-02 | Shell, en-tête, navigation mobile   | terminé |
+| DS-03 | Accueil et patrimoine               | terminé |
+| DS-04 | Positions et fiche détaillée        | terminé |
 | DS-05 | Parcours d'ajout simplifié          | à faire |
 | DS-06 | Analyse et graphiques               | à faire |
 | DS-07 | Fonds et options                    | à faire |
 | DS-08 | Réglages, comptes, données et états | à faire |
 | DS-09 | Polish, motion, accessibilité, PWA  | à faire |
+
+### DS-04 — livrables vérifiés
+
+- **recherche et filtres sur la liste** : recherche portant sur le nom, le
+  symbole **et le compte** — « tout ce que je détiens chez tel établissement »
+  est une question aussi fréquente que « où est mon Nestlé » — et chips par
+  classe d'actifs, affichées seulement pour les classes réellement présentes ;
+- **lignes compactes avec pastille d'identité** : le symbole court ou, à
+  défaut, l'émoji de la classe. Les six positions de démonstration tiennent
+  désormais dans un seul écran de 390 px, recherche et filtres compris, là où
+  cinq et demie entraient auparavant ;
+- **badge de fraîcheur seulement s'il apprend quelque chose** : la fraîcheur
+  majoritaire est énoncée une fois au-dessus de la liste, et seules les lignes
+  qui s'en écartent gardent leur badge. Sur les données de démonstration, cinq
+  « Manuel » identiques disparaissent et le fonds en NAV — la seule ligne à
+  remarquer — devient visible. La règle exige une majorité stricte et au moins
+  deux lignes : à trois lignes en direct et trois périmées, désigner un « cas
+  normal » serait arbitraire, et sur une ligne unique le résumé masquerait
+  l'unique information au lieu du répétitif ;
+- **fiche détaillée réordonnée** selon l'architecture d'information : identité,
+  cours retenu, valeur et P&L, historique, métriques propres à la classe,
+  détention, provenance repliable, puis modifier et supprimer ;
+- **cours unitaire reconstitué** depuis la valorisation plutôt que relu chez le
+  fournisseur : `marketValueNative ÷ (quantité × multiplicateur)` redonne
+  exactement le cours ayant servi au calcul. Un chiffre plus frais que le total
+  rendrait la fiche incohérente avec elle-même. Couvert par six tests unitaires,
+  dont l'option à multiplicateur 100 et la position vendue à découvert ;
+- **provenance repliée par défaut** (`<details>` natif, donc sans JavaScript) :
+  ces champs servent à vérifier un chiffre contesté, pas à être lus chaque
+  jour. Ouverts en permanence, ils repoussaient « Modifier » hors du premier
+  écran sur 390 px ;
+- **bouton de suppression enfin distinct du bouton de confirmation** :
+  `SubmitButton` accepte une variante et un libellé d'attente. Peint en accent
+  comme « Enregistrer », il invitait au clic exactement là où il faut hésiter.
+
+Trois défauts trouvés pendant le lot, tous corrigés :
+
+- **la saisie tapée avant l'hydratation était perdue**. Le champ rendu par le
+  serveur acceptait les lettres alors que React n'écoutait pas encore : rien ne
+  se filtrait, puis la saisie disparaissait. Recherche et filtres sont
+  désormais inertes tant que le composant n'est pas hydraté — un contrôle
+  désactivé est plus honnête qu'un contrôle mort, et c'est aussi le
+  comportement correct sans JavaScript du tout, vérifié par un parcours dédié ;
+- **`scripts/design-shots.mjs` capturait la liste sous le nom `-detail.png`**,
+  et ce depuis les lots précédents : le clic partait avant l'hydratation. Le
+  script lit maintenant l'URL de la première position et y navigue
+  directement. Une campagne de revue fausse qui ne prévient pas est pire que
+  pas de campagne ;
+- **deux tables d'émojis divergentes** entre l'accueil et les positions. Elles
+  sont fusionnées dans `asset-icon.ts`, et la table est **totale** : une classe
+  ajoutée au domaine casse la compilation au lieu de s'afficher en puce
+  générique dans deux écrans.
+
+Hors périmètre, laissé tel quel et signalé : aucun historique par position
+n'existe — les instantanés portent sur le patrimoine entier. La fiche l'écrit
+plutôt que de tracer une courbe inventée ; le tracé viendra avec DS-06. Les
+métriques propres aux fonds et aux options restent sommaires, DS-07 les
+approfondira, et le bouton de suppression des données dans les réglages garde
+l'ancien style tant que DS-08 n'y est pas passé.
 
 ### DS-03 — livrables vérifiés
 

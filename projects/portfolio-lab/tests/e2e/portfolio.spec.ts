@@ -136,16 +136,119 @@ test.describe("liste des positions", () => {
     await expect(items).toHaveCount(6);
   });
 
-  test("chaque position porte un badge de fraîcheur", async ({ page }) => {
+  test("n'affiche un badge que sur la ligne dont la fraîcheur diffère", async ({ page }) => {
     await page.goto("/positions");
-    const badges = page.getByText(/Manuel|Dernière NAV|Donnée périmée|Indisponible/);
-    expect(await badges.count()).toBeGreaterThanOrEqual(6);
+
+    /*
+     * Cinq lignes valorisées « Manuel » et un fonds en NAV. Répéter « Manuel »
+     * cinq fois n'apprend rien et noierait la seule ligne à remarquer : la
+     * fraîcheur commune est donc énoncée une fois, et le fonds seul garde son
+     * badge.
+     */
+    await expect(page.locator("[data-pl-common-freshness]")).toHaveText(/manuel/i);
+
+    const badges = page.getByRole("main").locator("[data-pl-freshness]");
+    await expect(badges).toHaveCount(1);
+    await expect(badges.first()).toHaveAttribute("data-pl-freshness", "NAV");
+  });
+
+  test("ne cache jamais la fraîcheur d'une ligne isolée par un filtre", async ({ page }) => {
+    await page.goto("/positions");
+
+    /*
+     * Une fois le fonds seul à l'écran, il n'y a plus de « cas normal » à
+     * résumer : la fraîcheur doit alors rester sur la ligne elle-même. C'est
+     * le piège de ce genre de règle — à force de masquer le répétitif, elle
+     * finit par masquer l'unique. Filtrer ne doit jamais effacer
+     * l'information, seulement la déplacer.
+     */
+    await page.getByRole("button", { name: /Fonds/ }).click();
+    await expect(page.getByRole("main").getByRole("listitem")).toHaveCount(1);
+    await expect(page.locator("[data-pl-common-freshness]")).toHaveCount(0);
+
+    const badges = page.getByRole("main").locator("[data-pl-freshness]");
+    await expect(badges).toHaveCount(1);
+    await expect(badges.first()).toHaveAttribute("data-pl-freshness", "NAV");
   });
 
   test("le fonds affiche « Dernière NAV » et jamais un cours intraday", async ({ page }) => {
     await page.goto("/positions");
-    const fund = page.getByRole("link", { name: /Démo Fonds Équilibré/ });
+    const fund = page.getByRole("listitem").filter({ hasText: "Démo Fonds Équilibré" });
+    await expect(fund.locator("[data-pl-freshness]")).toHaveAttribute("data-pl-freshness", "NAV");
     await expect(fund).toContainText("Dernière NAV");
+  });
+
+  test("la recherche réduit la liste au titre saisi", async ({ page }) => {
+    await page.goto("/positions");
+    const items = page.getByRole("main").getByRole("listitem");
+    await expect(items).toHaveCount(6);
+
+    await page.getByRole("searchbox").fill("Fonds");
+    await expect(items).toHaveCount(1);
+    await expect(items.first()).toContainText("Démo Fonds Équilibré");
+  });
+
+  test("la recherche porte aussi sur le compte, pas seulement sur le titre", async ({ page }) => {
+    await page.goto("/positions");
+    const items = page.getByRole("main").getByRole("listitem");
+    await expect(items).toHaveCount(6);
+
+    /*
+     * « Démo Actions » est un nom de compte qui n'apparaît dans aucun nom
+     * d'instrument, et qui regroupe quatre des six lignes. Si le filtre ne
+     * regardait que le titre, la recherche ne renverrait rien ; s'il ne
+     * filtrait pas du tout, elle en renverrait six.
+     *
+     * « Tout ce que je détiens chez tel établissement » est une question
+     * aussi courante que « où est mon Nestlé ».
+     */
+    await page.getByRole("searchbox").fill("Démo Actions");
+    await expect(items).toHaveCount(4);
+    await expect(items.first()).toContainText("Démo Actions");
+  });
+
+  test("un filtre de classe ne garde que cette classe", async ({ page }) => {
+    await page.goto("/positions");
+    const items = page.getByRole("main").getByRole("listitem");
+
+    await page.getByRole("button", { name: /Fonds/ }).click();
+    await expect(items).toHaveCount(1);
+    await expect(items.first()).toContainText("Fonds de placement");
+  });
+
+  test("dit explicitement qu'aucune position ne correspond", async ({ page }) => {
+    await page.goto("/positions");
+    await page.getByRole("searchbox").fill("zzzzzzzz");
+
+    // Une liste vide sans phrase se lit comme un écran cassé.
+    await expect(page.getByText(/Aucune position ne correspond/)).toBeVisible();
+    await expect(page.getByRole("main").getByRole("listitem")).toHaveCount(0);
+  });
+
+  test("sans JavaScript, la liste reste entière et ne feint pas de filtrer", async ({
+    browser,
+  }) => {
+    /*
+     * La liste est rendue par le serveur : elle doit rester lisible même si
+     * aucun script ne s'exécute. La recherche et les filtres, eux, ne peuvent
+     * pas fonctionner — ils doivent donc être inertes, et le dire, plutôt que
+     * d'avaler les lettres sans rien filtrer.
+     */
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+
+    await page.goto("/positions");
+    await expect(page.getByRole("main").getByRole("listitem")).toHaveCount(6);
+    await expect(page.getByRole("searchbox")).toBeDisabled();
+
+    await context.close();
+  });
+
+  test("rappelle la devise des montants une seule fois", async ({ page }) => {
+    await page.goto("/positions");
+    // Répété sur chaque ligne, le code devise vole la place du montant sur un
+    // écran de 390 px ; absent, la colonne devient ambiguë.
+    await expect(page.getByText(/Montants en CHF/)).toHaveCount(1);
   });
 });
 
@@ -155,6 +258,13 @@ test.describe("détail d'une position", () => {
     await page.getByRole("link", { name: /Démo Technologies CALL/ }).click();
 
     await expect(page.getByRole("heading", { level: 1 })).toContainText("CALL");
+
+    // La provenance est repliée par défaut : elle sert à vérifier un chiffre
+    // contesté, pas à être lue chaque jour. Le test l'ouvre donc comme le
+    // ferait un utilisateur, mais exige qu'elle reste atteignable sans quitter
+    // la fiche.
+    await page.getByText("Détails de valorisation").click();
+
     for (const label of [
       "Méthode de valorisation",
       "Fournisseur",
@@ -164,6 +274,29 @@ test.describe("détail d'une position", () => {
     ]) {
       await expect(page.getByText(label, { exact: true })).toBeVisible();
     }
+  });
+
+  test("le cours unitaire tient compte du multiplicateur de l'option", async ({ page }) => {
+    await page.goto("/positions");
+    await page.getByRole("link", { name: /Démo Technologies CALL/ }).click();
+
+    // 1 240 USD pour 2 contrats × 100 : le cours unitaire vaut 6.20, pas 620.
+    // Une régression sur le multiplicateur afficherait ici un cours cent fois
+    // trop élevé tout en laissant le total juste — invisible autrement.
+    const quote = page.locator("section").filter({ hasText: "Cours retenu" });
+    await expect(quote).toContainText("6.20");
+    await expect(quote).not.toContainText("620.00");
+  });
+
+  test("ne trace aucune courbe tant qu'aucun historique n'existe", async ({ page }) => {
+    await page.goto("/positions");
+    await page.getByRole("link", { name: /Démo Technologies CALL/ }).click();
+
+    // Une courbe inventée serait la seule faute impardonnable de cet écran :
+    // l'absence d'historique doit être écrite, pas comblée.
+    const history = page.locator("section").filter({ hasText: "Historique" });
+    await expect(history).toContainText(/Aucun historique/);
+    await expect(history.locator("svg")).toHaveCount(0);
   });
 
   test("affiche le multiplicateur du contrat d'option", async ({ page }) => {
