@@ -21,6 +21,8 @@
     "build": "pnpm -r --sequential run build",
     "dev": "pnpm --filter @portfolio-lab/web run dev",
     "dev:gateway": "pnpm --filter @portfolio-lab/market-gateway run dev",
+    "setup": "tsx scripts/setup.mts",
+    "demo": "tsx scripts/setup.mts --demo",
     "icons": "node scripts/generate-icons.mjs",
     "coverage:matrix": "tsx scripts/coverage-matrix.mts"
   },

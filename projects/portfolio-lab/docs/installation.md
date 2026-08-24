@@ -23,7 +23,40 @@ n'utilisent rien de postérieur, mais rien de plus ancien n'a été vérifié.
 
 ---
 
-## 2. Installation
+## 2. Démarrage rapide
+
+Depuis un dépôt fraîchement cloné :
+
+```bash
+cd projects/portfolio-lab
+pnpm install
+createdb portfolio_lab
+export DATABASE_URL="postgresql://$USER@localhost:5432/portfolio_lab"
+
+pnpm run demo                              # migrations + données fictives
+PORTFOLIO_LAB_DEMO_MODE=true pnpm run dev  # http://localhost:3100
+```
+
+`pnpm run demo` charge un portefeuille fictif, pour regarder l'application
+fonctionner. Pour partir d'une base vide et saisir ses propres positions :
+
+```bash
+pnpm run setup    # migrations seulement
+pnpm run dev
+```
+
+Les deux sont **idempotents** : les relancer sur une base déjà prête n'efface
+rien et n'échoue pas. Ils passent par le même runner de migrations que les
+tests, qui enregistre ce qu'il a appliqué et détecte une migration modifiée
+après coup.
+
+`createdb` reste à votre charge : les droits et la méthode de connexion varient
+trop d'une installation à l'autre pour être devinés, et échouer là-dessus au
+milieu d'un script laisserait un état à moitié préparé.
+
+Le détail de chaque étape suit.
+
+## 3. Installation manuelle
 
 ```bash
 git clone <dépôt>
@@ -36,7 +69,7 @@ pnpm install
 
 ---
 
-## 3. Base de données
+## 4. Base de données
 
 ```bash
 createdb portfolio_lab
@@ -64,7 +97,7 @@ automatiquement.
 
 ---
 
-## 4. Variables d'environnement
+## 5. Variables d'environnement
 
 Toutes sont documentées dans `.env.example`. Aucune valeur réelle n'est versionnée.
 
@@ -91,7 +124,7 @@ rapporterait comme testé ce qui ne l'a jamais été.
 
 ---
 
-## 5. Lancer l'application
+## 6. Lancer l'application
 
 ```bash
 pnpm run dev            # développement, port 3100
@@ -109,7 +142,7 @@ l'application fonctionne : les cours viennent des fixtures, marqués comme tels.
 
 ---
 
-## 6. Vérifier une installation
+## 7. Vérifier une installation
 
 ```bash
 pnpm run format:check
@@ -130,7 +163,7 @@ l'oubli soit bruyant.
 
 ---
 
-## 7. Installer sur l'écran d'accueil d'un iPhone
+## 8. Installer sur l'écran d'accueil d'un iPhone
 
 Sans App Store, sans compte développeur.
 
@@ -149,7 +182,7 @@ même réseau, et l'adresse de la machine plutôt que `localhost`.
 
 ---
 
-## 8. Exploitation courante
+## 9. Exploitation courante
 
 | Tâche                             | Comment                                         |
 | --------------------------------- | ----------------------------------------------- |
