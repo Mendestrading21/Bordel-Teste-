@@ -101,6 +101,15 @@ E2E compare la largeur de défilement de chaque pastille à sa largeur visible.
 Vérifié par mutation : il nomme les symboles fautifs et de combien ils
 débordent.
 
+Second défaut trouvé par l'audit : **les parts de répartition portaient un signe
+plus.** « +48.86 % » se lit comme une hausse — le signe plus annonce une
+variation, et une répartition n'en est pas une. Les deux notions partagent
+l'unité mais pas la lecture, et les confondre transformait chaque répartition en
+tableau de performance. Un `formatShare` distinct est introduit, sans signe pour
+les parts positives et conservant le moins d'une contribution négative au P&L ;
+`formatPercent` reste réservé aux variations. Quatre tests unitaires fixent la
+distinction.
+
 Vérifié sans modification nécessaire : contraste AA sur les quatre fonds pour
 les neuf couleurs porteuses de texte (36 combinaisons, déjà couvertes depuis
 DS-01), anneau de focus visible, `viewport-fit: cover` et `safe-area-inset`,

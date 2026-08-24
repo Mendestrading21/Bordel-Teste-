@@ -93,6 +93,33 @@ export function formatPercent(
 }
 
 /**
+ * Formate une **part** — une fraction d'un tout — pour l'affichage.
+ *
+ * Sans signe, contrairement à `formatPercent`. Une part de 48.86 % affichée
+ * « +48.86 % » se lit comme une hausse : le signe plus annonce une variation,
+ * et une répartition n'en est pas une. Les deux notions partagent l'unité mais
+ * pas la lecture, et les confondre transformait chaque camembert en tableau de
+ * performance.
+ */
+export function formatShare(
+  value: DecimalString | null,
+  locale: string = NUMERIC_LOCALE,
+  fractionDigits = 2,
+): string {
+  if (value === null) {
+    return "—";
+  }
+  const asNumber = Number(decimal(value).toFixed(fractionDigits + 2));
+  return new Intl.NumberFormat(locale, {
+    style: "percent",
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+    // `signDisplay` reste à sa valeur par défaut : le moins d'une part
+    // négative est conservé, le plus d'une part positive n'est jamais ajouté.
+  }).format(asNumber);
+}
+
+/**
  * Formate une quantité pour l'affichage.
  *
  * PostgreSQL renvoie `numeric(30, 12)` avec ses douze décimales : « 2 » revient
