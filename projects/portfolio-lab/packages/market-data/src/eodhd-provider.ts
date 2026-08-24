@@ -6,6 +6,14 @@ import {
   type DecimalString,
 } from "@portfolio-lab/domain";
 
+import {
+  eodhdChannelFor,
+  eodhdStreamSymbol,
+  eodhdStreamUrl,
+  eodhdSubscription,
+  parseEodhdTick,
+  type EodhdChannel,
+} from "./eodhd-stream.js";
 import { providerDecimal } from "./provider-decimal.js";
 import {
   ProviderError,
@@ -19,6 +27,7 @@ import {
   type PriceBar,
   type ProviderCapabilities,
   type ResolvedInstrument,
+  type SubscriptionHandle,
 } from "./contract.js";
 
 export const EODHD_PROVIDER_ID = "eodhd";
@@ -27,6 +36,23 @@ export type EodhdMode = "demo" | "live";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+/**
+ * Socket minimal dont l'adaptateur a besoin.
+ *
+ * Volontairement plus étroit que `WebSocket` : le paquet `market-data` ne
+ * dépend d'aucune implémentation, et les tests fournissent un faux socket sans
+ * ouvrir de port. C'est ce qui permet de vérifier l'abonnement, le
+ * désabonnement et le traitement des ticks dans la suite unitaire.
+ */
+export type StreamSocket = {
+  send(data: string): void;
+  close(): void;
+  addEventListener(type: "message", listener: (event: { data: unknown }) => void): void;
+  addEventListener(type: "open" | "error" | "close", listener: () => void): void;
+};
+
+export type StreamSocketFactory = (url: string) => StreamSocket;
+
 export type EodhdProviderOptions = {
   readonly apiToken: string;
   readonly mode: EodhdMode;
@@ -34,6 +60,13 @@ export type EodhdProviderOptions = {
   readonly baseUrl?: string;
   readonly timeoutMs?: number;
   readonly now?: () => Date;
+  /**
+   * Fabrique de socket temps réel. Absente, l'adaptateur annonce
+   * `streaming: false` : mieux vaut ne rien promettre que promettre un flux
+   * qu'aucune implémentation ne sait ouvrir.
+   */
+  readonly socketFactory?: StreamSocketFactory;
+  readonly streamBaseUrl?: string;
 };
 
 type EodhdSearchRow = {
@@ -105,12 +138,80 @@ function currencyFrom(value: unknown): CurrencyCode | null {
   return isCurrencyCode(value) ? value : null;
 }
 
+/**
+ * Traduit le champ `Type` d'EODHD vers la taxonomie interne.
+ *
+ * La version d'origine ne connaissait que trois types et renvoyait `null` pour
+ * tout le reste — un `null` que l'appelant traduisait en « ligne ignorée ».
+ * Les indices, devises, cryptos et obligations remontés par la recherche EODHD
+ * étaient donc **silencieusement jetés** : l'utilisateur cherchait « S&P 500 »
+ * et n'obtenait rien, sans qu'aucune erreur ne l'explique.
+ *
+ * L'ordre des tests compte. « ETF » avant « fund » parce qu'EODHD écrit
+ * parfois « ETF » dans un libellé contenant aussi « Fund » ; « preferred
+ * stock » avant « stock » n'est pas nécessaire, les deux étant des actions.
+ */
 function assetTypeFromEodhd(type: string): AssetType | null {
   const normalized = type.toLowerCase();
-  if (normalized.includes("etf")) return "ETF";
+  if (normalized.includes("etf") || normalized.includes("etc")) return "ETF";
   if (normalized.includes("fund")) return "MUTUAL_FUND";
+  if (normalized.includes("index") || normalized.includes("indice")) return "INDEX";
+  if (normalized.includes("currency") || normalized.includes("forex")) return "FX";
+  if (normalized.includes("crypto")) return "CRYPTO";
+  if (normalized.includes("bond") || normalized.includes("note")) return "BOND";
+  if (normalized.includes("future")) return "FUTURE";
+  if (normalized.includes("commodity")) return "COMMODITY";
   if (normalized.includes("stock") || normalized.includes("equity")) return "STOCK";
   return null;
+}
+
+/**
+ * Code de place EODHD vers code MIC ISO 10383.
+ *
+ * EODHD suffixe ses symboles d'un code maison — `.US`, `.SW`, `.PA` — qui
+ * **n'est pas un MIC**. Les confondre placerait une valeur inventée dans un
+ * champ que le reste du produit lit comme une référence normalisée.
+ *
+ * La table ne couvre que les places dont le MIC est certain. Tout le reste
+ * reste `null` : ne rien affirmer vaut mieux qu'affirmer approximativement, et
+ * un `null` se corrige, une valeur fausse se propage.
+ */
+const MIC_BY_EODHD_EXCHANGE: Readonly<Record<string, string>> = {
+  /*
+   * `US` est **délibérément absent**. C'est un code composite couvrant NYSE,
+   * NASDAQ, AMEX et ARCA : `AAPL.US` se négocie sur XNAS, `VTI.US` sur ARCX.
+   * Le traduire par un MIC unique attribuerait une place fausse à une position
+   * sur deux. Il en va de même pour `TSE`, qu'EODHD emploie pour Tokyo alors
+   * que la lecture spontanée est Toronto.
+   */
+  NASDAQ: "XNAS",
+  NYSE: "XNYS",
+  NYSEARCA: "ARCX",
+  BATS: "BATS",
+  SW: "XSWX",
+  VX: "XVTX",
+  PA: "XPAR",
+  AS: "XAMS",
+  BR: "XBRU",
+  LS: "XLIS",
+  XETRA: "XETR",
+  F: "XFRA",
+  MI: "XMIL",
+  MC: "XMAD",
+  LSE: "XLON",
+  L: "XLON",
+  VI: "XWBO",
+  ST: "XSTO",
+  HE: "XHEL",
+  CO: "XCSE",
+  OL: "XOSL",
+  TO: "XTSE",
+  HK: "XHKG",
+  AU: "XASX",
+};
+
+function micFromEodhdExchange(exchange: string): string | null {
+  return MIC_BY_EODHD_EXCHANGE[exchange.toUpperCase()] ?? null;
 }
 
 function confidence(row: EodhdSearchRow, needle: string): number {
@@ -220,7 +321,7 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
           name,
           assetType,
           currency,
-          exchangeMic: null,
+          exchangeMic: micFromEodhdExchange(exchange),
           isin: stringValue(row.ISIN),
           figi: null,
           countryCode: stringValue(row.Country),
@@ -257,8 +358,31 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
       ref.kind === "ISIN"
         ? candidates.filter((item) => item.isin === ref.isin)
         : candidates.filter((item) => item.providerSymbol.split(".")[0] === ref.ticker);
-    if (exact.length !== 1) return null;
-    const hit = exact[0]!;
+    if (exact.length === 0) return null;
+    if (exact.length > 1) {
+      /*
+       * Plusieurs instruments correspondent — typiquement la même société
+       * cotée sur plusieurs places, ou deux classes de parts d'un fonds.
+       *
+       * L'ancienne version renvoyait `null`, que le routeur interprétait comme
+       * « ce fournisseur ne connaît pas » et qui le faisait passer au suivant.
+       * Le fournisseur suivant, lui, pouvait trancher tout seul : l'utilisateur
+       * se retrouvait avec un instrument choisi à sa place, sur une place et
+       * dans une devise qu'il n'avait pas demandées.
+       *
+       * `AMBIGUOUS` n'est pas récupérable par le routeur, précisément pour que
+       * la question remonte à l'utilisateur.
+       */
+      throw new ProviderError(
+        "AMBIGUOUS",
+        EODHD_PROVIDER_ID,
+        `${exact.length} instruments correspondent : ${exact
+          .map((item) => `${item.providerSymbol} (${item.currency})`)
+          .join(", ")}`,
+      );
+    }
+    const hit = exact[0];
+    if (hit === undefined) return null;
     return {
       provider: EODHD_PROVIDER_ID,
       providerSymbol: hit.providerSymbol,
@@ -306,13 +430,26 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
 
     capabilities(): ProviderCapabilities {
       return {
-        assetTypes: ["STOCK", "ETF", "MUTUAL_FUND"],
+        /*
+         * Cette liste est **porteuse** depuis LIVE-01 : le routeur n'appelle
+         * plus un fournisseur pour une classe qu'il ne déclare pas. Elle
+         * omettait `FX` alors que `getFxRate` existe — les devises auraient
+         * cessé d'être servies par EODHD sans qu'aucune erreur ne le dise.
+         *
+         * Ne figurent ici que les classes dont l'adaptateur sait réellement
+         * résoudre et valoriser un instrument. Les options en sont absentes :
+         * EODHD ne publie pas de chaîne d'options, et l'annoncer ferait router
+         * vers lui des requêtes qu'il ne peut pas honorer.
+         */
+        assetTypes: ["STOCK", "ETF", "MUTUAL_FUND", "INDEX", "FX", "CRYPTO", "BOND"],
         searchByText: options.mode === "live",
         searchByIsin: options.mode === "live",
         optionChains: false,
         fx: true,
         history: true,
-        streaming: false,
+        // Annoncé seulement si une implémentation existe : le routeur écarte
+        // les fournisseurs incapables, encore faut-il qu'il soit informé.
+        streaming: options.socketFactory !== undefined,
         // L'endpoint /real-time standard est documenté comme live/delayed.
         bestFreshness: "DELAYED",
         delayMinutes: null,
@@ -404,13 +541,21 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
 
     async getFxRate(base: CurrencyCode, quote: CurrencyCode): Promise<FxQuote> {
       if (base === quote) {
+        /*
+         * Un taux d'une devise vers elle-même vaut exactement 1, mais ce n'est
+         * pas une observation de marché : aucun fournisseur ne l'a coté.
+         * L'annoncer `LIVE` reviendrait à revendiquer une fraîcheur temps réel
+         * pour une constante, exactement la promotion que la règle de
+         * fraîcheur interdit. `MANUAL` dit ce que c'est : une valeur posée par
+         * l'application.
+         */
         return {
           base,
           quote,
           rate: toDecimalString("1"),
           provider: EODHD_PROVIDER_ID,
           asOf: now().toISOString(),
-          freshness: "LIVE",
+          freshness: "MANUAL",
         };
       }
       const payload = (await requestJson(`real-time/${base}${quote}.FOREX`)) as EodhdRealtime;
@@ -431,5 +576,105 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
         freshness: "DELAYED",
       };
     },
+
+    /**
+     * Abonne un lot d'instruments aux canaux temps réel d'EODHD.
+     *
+     * Un socket est ouvert **par canal**, pas par instrument : EODHD sépare
+     * actions américaines, devises et crypto, et vingt positions sur trois
+     * classes tiennent en trois connexions au lieu de vingt.
+     *
+     * Les instruments qu'aucun canal ne couvre sont ignorés **ici** en toute
+     * connaissance de cause : le routeur les a déjà signalés à l'appelant via
+     * `unsupported`, et c'est là que l'information doit remonter.
+     */
+    ...(options.socketFactory === undefined
+      ? {}
+      : {
+          async subscribe(
+            instruments: readonly ResolvedInstrument[],
+            onQuote: (quote: NormalizedQuote) => void,
+          ): Promise<SubscriptionHandle> {
+            const factory = options.socketFactory;
+            if (factory === undefined) {
+              throw new ProviderError(
+                "UNSUPPORTED",
+                EODHD_PROVIDER_ID,
+                "Aucune fabrique de socket configurée",
+              );
+            }
+
+            const byChannel = new Map<EodhdChannel, ResolvedInstrument[]>();
+            for (const instrument of instruments) {
+              const channel = eodhdChannelFor(instrument);
+              if (channel === null) continue;
+              const group = byChannel.get(channel) ?? [];
+              group.push(instrument);
+              byChannel.set(channel, group);
+            }
+
+            const sockets: StreamSocket[] = [];
+
+            for (const [channel, group] of byChannel) {
+              const socket = factory(
+                eodhdStreamUrl(
+                  channel,
+                  options.apiToken,
+                  options.streamBaseUrl ?? "wss://ws.eodhistoricaldata.com/ws",
+                ),
+              );
+
+              /*
+               * Le symbole de flux diffère du symbole REST : l'index permet de
+               * retrouver l'instrument résolu, seul porteur de la devise. La
+               * déduire du canal donnerait des dollars à une action suisse.
+               */
+              const byStreamSymbol = new Map(
+                group.map((instrument) => [eodhdStreamSymbol(instrument), instrument]),
+              );
+
+              socket.addEventListener("open", () => {
+                socket.send(
+                  JSON.stringify(eodhdSubscription("subscribe", [...byStreamSymbol.keys()])),
+                );
+              });
+
+              socket.addEventListener("message", (event: { data: unknown }) => {
+                const payload = ((): unknown => {
+                  if (typeof event.data !== "string") return event.data;
+                  try {
+                    return JSON.parse(event.data);
+                  } catch {
+                    // Un message non-JSON n'est pas une panne : EODHD envoie
+                    // des textes de statut. L'ignorer vaut mieux que rompre.
+                    return null;
+                  }
+                })();
+
+                const symbol =
+                  typeof payload === "object" && payload !== null && "s" in payload
+                    ? String((payload as { s: unknown }).s)
+                    : null;
+                const instrument = symbol === null ? undefined : byStreamSymbol.get(symbol);
+                if (instrument === undefined) return;
+
+                const quote = parseEodhdTick(payload, {
+                  instrument,
+                  channel,
+                  receivedAt: now().toISOString(),
+                });
+                if (quote !== null) onQuote(quote);
+              });
+
+              sockets.push(socket);
+            }
+
+            return {
+              async unsubscribe(): Promise<void> {
+                for (const socket of sockets) socket.close();
+              },
+            };
+          },
+        }),
   };
 }
