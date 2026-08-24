@@ -6,31 +6,51 @@ supposé.
 
 ## Verdict global
 
-**Aucun fournisseur n'est PRODUCTION READY**, et aucun ne peut l'être depuis cet
-environnement.
+**Aucun fournisseur n'est PRODUCTION READY.**
 
-## Le blocage, énoncé d'abord
+Deux ont néanmoins été **réellement contactés** depuis la CI, et ont répondu :
+tous deux réclament une clé personnelle que la clé `demo` publique ne remplace
+pas. Le transport fonctionne donc ; c'est l'autorisation qui manque.
+
+## Deux environnements, deux résultats — et c'est l'essentiel
+
+### Ici : réseau entièrement bloqué
 
 Tous les hôtes fournisseurs sont refusés par la politique de sortie réseau de
-l'environnement d'exécution. Vérifié le 24 août 2026 :
-
-| Hôte                 | Réponse                       |
-| -------------------- | ----------------------------- |
-| `eodhd.com`          | `403 — Host not in allowlist` |
-| `api.twelvedata.com` | `403 — Host not in allowlist` |
-| `api.coingecko.com`  | `403 — Host not in allowlist` |
-| `api.openfigi.com`   | `403 — Host not in allowlist` |
-| `api.massive.com`    | `403 — Host not in allowlist` |
-| `www.finra.org`      | `403 — Host not in allowlist` |
+l'environnement de développement. Vérifié le 24 août 2026 pour `eodhd.com`,
+`api.twelvedata.com`, `api.coingecko.com`, `api.openfigi.com`,
+`api.massive.com` et `www.finra.org` : `403 — Host not in allowlist`.
 
 Le corps de la réponse est celui de la passerelle d'egress, pas celui du
-fournisseur. C'est une distinction qui a coûté deux corrections : un `403` de
-passerelle est indiscernable d'un `403` fournisseur au niveau du code de statut,
-et les deux outils — le script de vérification et la matrice — concluaient
-« clé refusée » alors qu'aucune requête n'était sortie de la machine.
+fournisseur. La distinction a coûté deux corrections : un `403` de passerelle
+est indiscernable d'un `403` fournisseur au niveau du code de statut, et les
+deux outils concluaient « clé refusée » alors qu'aucune requête n'était sortie
+de la machine.
 
-**Pour débloquer** : ajouter ces six hôtes aux réglages de sortie réseau de
-l'environnement. Aucune autre action n'est requise côté code.
+### En CI : les fournisseurs répondent réellement
+
+Le runner GitHub Actions, lui, a un accès réseau. **La matrice y a obtenu de
+vraies réponses**, et c'est la première preuve de contact de tout ce chantier :
+
+| Fournisseur | Réponse réelle observée en CI                                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Twelve Data | `401` — « The 'demo' API key is only used for initial familiarity. To become a full user, you can request your own API key at https://twelvedata.com/pricing. It is absolutely free » |
+| EODHD       | `403` — « Forbidden. Please contact support@eodhistoricaldata.com »                                                                                                                   |
+
+Deux enseignements.
+
+D'abord, **la clé `demo` ne suffit pas** chez ces deux fournisseurs pour les
+endpoints utilisés par la matrice. Twelve Data l'annonce explicitement et offre
+une clé personnelle gratuite ; EODHD refuse le FX à sa clé de démonstration.
+
+Ensuite, et c'est ce qui valide la mécanique : `isEgressBlocked` **ne s'est pas
+déclenché** sur ces réponses. Le classificateur a correctement rangé un vrai
+refus de fournisseur en `PLAN_REQUIRED`, là où il range un blocage réseau en
+`BLOCKED_BY_NETWORK`. Les deux sens sont désormais éprouvés sur des données
+réelles, et non seulement sur fixtures.
+
+**Pour débloquer le développement local** : ajouter ces six hôtes aux réglages
+de sortie réseau de l'environnement. Aucune action côté code.
 
 ## Par fournisseur
 
@@ -99,15 +119,19 @@ Aucun `NOT_FOUND` n'apparaît chez un fournisseur réel, et c'est délibéré :
 
 ## Ce qui reste à faire quand l'accès existera
 
-1. rejouer `pnpm market:smoke` et vérifier au moins un `OK` réel ;
-2. rejouer `pnpm coverage:matrix` avec une clé EODHD personnelle pour la
-   recherche par ISIN ;
-3. confronter le format de fil des deux WebSocket à une vraie connexion — le
+1. obtenir une clé Twelve Data personnelle — elle est gratuite, et le
+   fournisseur l'annonce lui-même dans sa réponse ;
+2. obtenir une clé EODHD personnelle : la clé `demo` ne couvre ni la recherche
+   ni le FX ;
+3. rejouer `pnpm market:smoke` et `pnpm coverage:matrix` depuis un
+   environnement disposant du réseau — la CI en est un — et vérifier au moins
+   un `OK` réel ;
+4. confronter le format de fil des deux WebSocket à une vraie connexion — le
    parseur est isolé dans un module par fournisseur pour que la correction ne
    touche qu'un seul endroit ;
-4. fournir les ISIN exacts des classes de parts Pictet, UBS et
+5. fournir les ISIN exacts des classes de parts Pictet, UBS et
    BlackRock/Amundi à tester. **Ils ne sont pas inventés ici** : une mauvaise
    classe de parts est un échec du test, pas une approximation acceptable ;
-5. faire passer les fournisseurs éprouvés de `FIXTURE_TESTED` à
+6. faire passer les fournisseurs éprouvés de `FIXTURE_TESTED` à
    `PRODUCTION_TESTED` dans `candidates.ts`, une fois — et seulement une fois —
    qu'un appel réel a abouti.
