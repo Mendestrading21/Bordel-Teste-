@@ -62,7 +62,18 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("pong") }),
   z.object({
     type: z.literal("error"),
-    code: z.enum(["UNAUTHORIZED", "MALFORMED", "RATE_LIMITED", "PROVIDER_DOWN"]),
+    code: z.enum([
+      "UNAUTHORIZED",
+      "MALFORMED",
+      "RATE_LIMITED",
+      "PROVIDER_DOWN",
+      /*
+       * Demande d'abonnement au-delà des plafonds. Distinct de `RATE_LIMITED`,
+       * qui décrit une cadence : ici c'est le **volume** demandé qui est
+       * refusé, et réessayer plus tard n'y changera rien.
+       */
+      "SUBSCRIPTION_LIMIT",
+    ]),
     /** Message destiné à l'utilisateur, sans détail interne ni secret. */
     message: z.string(),
   }),
