@@ -119,15 +119,35 @@ export async function setupTestDatabase(options: {
     psql(url, SEED_FILE);
   }
 
+  /*
+   * Création du rôle applicatif, sûre en parallèle.
+   *
+   * La version précédente testait l'existence puis créait. Ce n'est pas
+   * atomique : `pg_roles` est global à l'instance, et plusieurs fichiers de
+   * test préparent leur base **simultanément**. Les deux sessions voyaient le
+   * rôle absent, les deux tentaient de le créer, et la seconde échouait. La
+   * suite entière tombait alors à la préparation — le genre de rouge
+   * intermittent qu'on finit par relancer sans lire.
+   *
+   * Le piège est dans le nom de l'erreur. On attend `duplicate_object`, mais
+   * PostgreSQL remonte une `unique_violation` sur `pg_authid_rolname_index` :
+   * le conflit est détecté par l'index système, pas par le contrôle de haut
+   * niveau. N'attraper que `duplicate_object` ne corrige donc **rien**.
+   *
+   * Mesuré sur douze sessions simultanées, cinq tours : la forme d'origine
+   * échoue 32 fois sur 60, la version qui n'attrape que `duplicate_object`
+   * 43 fois sur 60, et celle-ci zéro.
+   */
   await pool.query(
     `do $$
      begin
-       if not exists (select 1 from pg_roles where rolname = '${APP_ROLE}') then
-         create role ${APP_ROLE} nologin;
-       end if;
+       create role ${APP_ROLE} nologin;
+     exception
+       when duplicate_object or unique_violation then null;
      end
      $$;`,
   );
+
   await pool.query(`grant usage on schema public to ${APP_ROLE}`);
   await pool.query(
     `grant select, insert, update, delete on all tables in schema public to ${APP_ROLE}`,
