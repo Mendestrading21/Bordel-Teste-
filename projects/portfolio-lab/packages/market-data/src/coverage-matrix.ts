@@ -1,5 +1,6 @@
 import type { CurrencyCode, DecimalString } from "@portfolio-lab/domain";
 
+import { isEgressBlocked } from "./egress.js";
 import { ProviderError, type InstrumentReference, type MarketDataProvider } from "./contract.js";
 import type { ProviderRegistration, VerificationStatus } from "./registry.js";
 
@@ -60,7 +61,20 @@ export type CellOutcome =
   | "AMBIGUOUS"
   /** Le fournisseur ne prend pas en charge cette classe d'actifs. */
   | "UNSUPPORTED"
-  /** Erreur d'appel : réseau, quota, authentification. */
+  /** Clé absente, refusée, ou plan insuffisant pour cette donnée. */
+  | "PLAN_REQUIRED"
+  /** Quota du fournisseur atteint : la couverture reste indéterminée. */
+  | "RATE_LIMITED"
+  /**
+   * La requête n'a jamais atteint le fournisseur.
+   *
+   * Distingué de `PLAN_REQUIRED` parce qu'un environnement à liste blanche
+   * répond lui-même `403`, ce qu'un adaptateur traduit en `UNAUTHORIZED`. Sans
+   * cette distinction, le rapport conclurait « clé refusée » pour tous les
+   * fournisseurs alors qu'aucune requête n'est sortie de la machine.
+   */
+  | "BLOCKED_BY_NETWORK"
+  /** Erreur d'appel : réponse malformée, panne fournisseur. */
   | "ERROR";
 
 export type MatrixCell = {
@@ -268,14 +282,24 @@ function classifyError(
   error: unknown,
 ): MatrixCell {
   const kind = error instanceof ProviderError ? error.kind : "NETWORK";
-  const outcome: CellOutcome =
-    kind === "AMBIGUOUS" ? "AMBIGUOUS" : kind === "UNSUPPORTED" ? "UNSUPPORTED" : "ERROR";
-  return blankCell(
-    base.providerId,
-    base.instrumentId,
-    outcome,
-    `${kind} : ${(error as Error).message}`,
-  );
+  const message = error instanceof Error ? error.message : String(error);
+
+  const outcome: CellOutcome = ((): CellOutcome => {
+    /*
+     * Le blocage réseau est testé **avant** le type d'erreur, et non après :
+     * une passerelle à liste blanche répond `403`, que l'adaptateur a déjà
+     * traduit en `UNAUTHORIZED`. Tester le type d'abord classerait donc tout
+     * l'environnement bloqué en « clé refusée ».
+     */
+    if (isEgressBlocked(message)) return "BLOCKED_BY_NETWORK";
+    if (kind === "AMBIGUOUS") return "AMBIGUOUS";
+    if (kind === "UNSUPPORTED") return "UNSUPPORTED";
+    if (kind === "UNAUTHORIZED") return "PLAN_REQUIRED";
+    if (kind === "RATE_LIMITED") return "RATE_LIMITED";
+    return "ERROR";
+  })();
+
+  return blankCell(base.providerId, base.instrumentId, outcome, `${kind} : ${message}`);
 }
 
 /**
