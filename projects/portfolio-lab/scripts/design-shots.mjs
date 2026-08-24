@@ -74,12 +74,20 @@ for (const viewport of VIEWPORTS) {
     written += 1;
   }
 
-  // La fiche détaillée n'a pas d'URL stable : on l'atteint par la liste.
+  /*
+   * La fiche détaillée n'a pas d'URL stable : on lit celle de la première
+   * position dans la liste, puis on y navigue directement.
+   *
+   * Un `click()` suivi de `waitForLoadState` semblait plus naturel, mais il
+   * partait avant que la page soit hydratée et la capture figeait alors la
+   * liste — silencieusement, sous le nom `-detail.png`. Une campagne fausse
+   * qui ne prévient pas est pire que pas de campagne du tout.
+   */
   await page.goto(`${BASE_URL}/positions`, { waitUntil: "networkidle" });
   const first = page.getByRole("main").getByRole("link").first();
-  if ((await first.count()) > 0) {
-    await first.click();
-    await page.waitForLoadState("networkidle");
+  const href = (await first.count()) > 0 ? await first.getAttribute("href") : null;
+  if (href !== null) {
+    await page.goto(`${BASE_URL}${href}`, { waitUntil: "networkidle" });
     await page.waitForTimeout(350);
     await page.screenshot({
       path: `${OUT}/${viewport.name}-detail.png`,

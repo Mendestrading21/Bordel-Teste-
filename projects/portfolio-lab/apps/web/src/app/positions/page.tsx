@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
-import { ASSET_TYPE_LABEL, type AssetType, type CurrencyCode } from "@portfolio-lab/domain";
+import type { AssetType, CurrencyCode } from "@portfolio-lab/domain";
 
 import { DemoBanner } from "@/components/demo-banner";
 import { EmptyState } from "@/components/empty-state";
-import { FreshnessBadge } from "@/components/freshness-badge";
-import { Money, Percent, Quantity, Unavailable } from "@/components/money";
 import { PageHeader } from "@/components/page-header";
+import { PositionsList, type PositionRow } from "@/components/positions-list";
 import { loadPortfolioView } from "@/lib/data/portfolio";
 
 export const metadata: Metadata = { title: "Positions" };
@@ -40,77 +38,61 @@ export default async function PositionsPage(): Promise<React.JSX.Element> {
   const valuationById = new Map(valuation.positions.map((value) => [value.positionId, value]));
   const gapById = new Map(valuation.unvalued.map((gap) => [gap.positionId, gap]));
 
+  /*
+   * La vue est aplatie ici, côté serveur, avant d'atteindre le composant
+   * client : celui-ci n'a besoin ni du modèle complet des positions ni de la
+   * valorisation entière, et tout ce qui traverse la frontière serveur/client
+   * est sérialisé puis envoyé au navigateur. On n'envoie donc que l'affiché.
+   */
+  const rows: readonly PositionRow[] = view.positions.map((position) => {
+    const value = valuationById.get(position.positionId);
+    const gap = gapById.get(position.positionId);
+
+    if (value === undefined) {
+      return {
+        positionId: position.positionId,
+        instrumentName: position.instrumentName,
+        symbol: position.shortName,
+        assetType: position.assetType as AssetType,
+        accountName: position.accountName,
+        marketValueBase: null,
+        // La position n'est pas valorisée : la devise de base reste celle du
+        // portefeuille, jamais celle du coût, qui peut différer.
+        baseCurrency: valuation.baseCurrency as CurrencyCode,
+        unrealizedPnlPct: null,
+        freshness: "UNAVAILABLE",
+        asOf: null,
+        provider: null,
+        unavailableReason:
+          gap === undefined
+            ? "Valorisation indisponible"
+            : "Aucun cours fiable disponible pour cette position",
+      };
+    }
+
+    return {
+      positionId: position.positionId,
+      instrumentName: position.instrumentName,
+      symbol: position.shortName,
+      assetType: position.assetType as AssetType,
+      accountName: position.accountName,
+      marketValueBase: value.marketValueBase,
+      baseCurrency: value.baseCurrency as CurrencyCode,
+      unrealizedPnlPct: value.unrealizedPnlPct,
+      freshness: value.freshness,
+      asOf: value.asOf,
+      provider: value.provider,
+      unavailableReason: null,
+    };
+  });
+
   return (
     <>
       <PageHeader title="Positions" subtitle="Détail de chaque ligne, par compte et par devise." />
       <DemoBanner mode={view.mode} />
-
-      <ul className="space-y-3">
-        {view.positions.map((position) => {
-          const value = valuationById.get(position.positionId);
-          const gap = gapById.get(position.positionId);
-
-          return (
-            <li key={position.positionId}>
-              <Link
-                href={`/positions/${position.positionId}`}
-                className="block rounded-token-md border border-subtle bg-surface px-4 py-3 transition-colors hover:bg-elevated"
-                style={{ transitionDuration: "var(--pl-transition-fast)" }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-primary">{position.instrumentName}</p>
-                    <p className="mt-0.5 truncate text-xs text-secondary">
-                      {ASSET_TYPE_LABEL[position.assetType as AssetType]} · {position.accountName}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    {value === undefined ? (
-                      <Unavailable
-                        reason={
-                          gap === undefined
-                            ? "Valorisation indisponible"
-                            : "Aucun cours fiable disponible pour cette position"
-                        }
-                      />
-                    ) : (
-                      <>
-                        <p>
-                          <Money
-                            value={value.marketValueBase}
-                            currency={value.baseCurrency as CurrencyCode}
-                          />
-                        </p>
-                        <p className="mt-0.5 text-sm">
-                          <Percent value={value.unrealizedPnlPct} />
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {value === undefined ? (
-                    <FreshnessBadge freshness="UNAVAILABLE" />
-                  ) : (
-                    <>
-                      <FreshnessBadge
-                        freshness={value.freshness}
-                        asOf={value.asOf}
-                        provider={value.provider}
-                      />
-                      <span className="text-xs text-secondary">
-                        <Quantity value={position.quantity} /> ×{" "}
-                        <Money value={position.averageCost} currency={position.costCurrency} />
-                      </span>
-                    </>
-                  )}
-                </div>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="mt-4">
+        <PositionsList rows={rows} baseCurrency={valuation.baseCurrency as CurrencyCode} />
+      </div>
     </>
   );
 }

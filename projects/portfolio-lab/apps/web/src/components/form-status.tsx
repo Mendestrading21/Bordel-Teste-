@@ -4,7 +4,7 @@ import { useFormStatus } from "react-dom";
 
 import type { ActionResult } from "@/lib/data/validation";
 
-import { Button } from "./ui";
+import { Button, type ButtonVariant } from "./ui";
 
 /**
  * Bouton de soumission désactivé pendant l'envoi.
@@ -14,11 +14,26 @@ import { Button } from "./ui";
  */
 export function SubmitButton({
   children,
-}: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
+  variant = "primary",
+  pendingLabel = "Enregistrement…",
+}: Readonly<{
+  children: React.ReactNode;
+  /**
+   * Apparence du bouton.
+   *
+   * `danger` existe pour les actions destructrices : un bouton de suppression
+   * peint comme le bouton de confirmation invite au clic exactement là où il
+   * faudrait hésiter, et les deux se retrouvent côte à côte sur la fiche d'une
+   * position.
+   */
+  variant?: ButtonVariant | undefined;
+  /** Le libellé d'attente doit décrire l'action, pas toujours un enregistrement. */
+  pendingLabel?: string | undefined;
+}>): React.JSX.Element {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant="primary" disabled={pending} className="w-full">
-      {pending ? "Enregistrement…" : children}
+    <Button type="submit" variant={variant} disabled={pending} className="w-full">
+      {pending ? pendingLabel : children}
     </Button>
   );
 }

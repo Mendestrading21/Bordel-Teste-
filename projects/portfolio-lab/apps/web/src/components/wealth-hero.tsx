@@ -6,6 +6,7 @@ import {
 } from "@portfolio-lab/domain";
 import type { PortfolioValuation } from "@portfolio-lab/portfolio-engine";
 
+import { ASSET_ICON } from "./asset-icon";
 import { FreshnessBadge } from "./freshness-badge";
 import { Money, Percent } from "./money";
 import { Card, Chip } from "./ui";
@@ -146,16 +147,6 @@ export type AllocationRow = {
  * n'est pas décoratif. Il est masqué aux lecteurs d'écran, le libellé portant
  * déjà le sens.
  */
-const ASSET_ICON: Readonly<Partial<Record<AssetType, string>>> = {
-  STOCK: "📈",
-  ETF: "🧺",
-  OPTION: "🎯",
-  MUTUAL_FUND: "🏦",
-  CASH: "💵",
-  BOND: "📜",
-  CRYPTO: "🪙",
-};
-
 export function AllocationSummary({
   rows,
 }: Readonly<{ rows: readonly AllocationRow[] }>): React.JSX.Element | null {
@@ -171,7 +162,7 @@ export function AllocationSummary({
           <li key={row.assetType}>
             <div className="flex items-baseline justify-between gap-3 text-sm">
               <span className="min-w-0 truncate text-secondary">
-                <span aria-hidden="true">{ASSET_ICON[row.assetType] ?? "•"} </span>
+                <span aria-hidden="true">{ASSET_ICON[row.assetType]} </span>
                 {ASSET_TYPE_LABEL[row.assetType]}
               </span>
               <span className="pl-numeric shrink-0 text-tertiary">{row.sharePct.toFixed(1)} %</span>
