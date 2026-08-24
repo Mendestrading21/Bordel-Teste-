@@ -78,7 +78,6 @@ function Choice({
           ? "border-accent bg-elevated text-accent"
           : "border-subtle text-secondary hover:text-primary"
       }`}
-      style={{ transitionDuration: "var(--pl-transition-fast)" }}
     >
       {label}
     </Link>

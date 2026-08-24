@@ -33,12 +33,7 @@ export function ExportSection(): React.JSX.Element {
       <p className="mb-4 text-sm leading-relaxed text-secondary">
         Il est lisible en clair. Conservez-le comme vous conserveriez un relevé.
       </p>
-      <a
-        href="/api/export"
-        download
-        className={buttonClass("secondary")}
-        style={{ transitionDuration: "var(--pl-transition-fast)" }}
-      >
+      <a href="/api/export" download className={buttonClass("secondary")}>
         Télécharger ma sauvegarde
       </a>
     </Card>

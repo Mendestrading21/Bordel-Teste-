@@ -8,6 +8,7 @@ import {
   formatMoney,
   formatPercent,
   formatQuantity,
+  formatShare,
   NUMERIC_LOCALE,
   signOf,
 } from "./format.js";
@@ -147,5 +148,29 @@ describe("formatAmount", () => {
     const withCode = formatMoney(d("17800"), "CHF");
     expect(withCode).toContain(formatAmount(d("17800"), "CHF"));
     expect(withCode).toContain("CHF");
+  });
+});
+
+describe("formatShare", () => {
+  it("n'ajoute pas de signe à une part positive", () => {
+    // « +48.86 % » se lit comme une hausse : le signe plus annonce une
+    // variation, et une répartition n'en est pas une.
+    expect(formatShare(toDecimalString("0.4886"))).toBe("48.86%");
+  });
+
+  it("garde le signe d'une part négative", () => {
+    // Une contribution négative au P&L existe bel et bien ; la taire
+    // inverserait le sens de la ligne.
+    expect(formatShare(toDecimalString("-0.1250"))).toBe("-12.50%");
+  });
+
+  it("se distingue de formatPercent, qui signe les hausses", () => {
+    const value = toDecimalString("0.4886");
+    expect(formatPercent(value)).toContain("+");
+    expect(formatShare(value)).not.toContain("+");
+  });
+
+  it("affiche un tiret plutôt qu'un zéro trompeur quand la part est inconnue", () => {
+    expect(formatShare(null)).toBe("—");
   });
 });

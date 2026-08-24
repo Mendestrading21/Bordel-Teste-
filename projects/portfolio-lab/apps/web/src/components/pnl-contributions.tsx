@@ -1,6 +1,6 @@
 import type { CurrencyCode } from "@portfolio-lab/domain";
 import type { PnlContribution } from "@portfolio-lab/portfolio-engine";
-import { formatPercent } from "@portfolio-lab/ui";
+import { formatShare } from "@portfolio-lab/ui";
 
 import { Money } from "./money";
 
@@ -48,7 +48,7 @@ export function PnlContributions({
             <span className="shrink-0 text-secondary">
               {contribution.share === null ? null : (
                 <>
-                  <span className="pl-numeric">{formatPercent(contribution.share)}</span>
+                  <span className="pl-numeric">{formatShare(contribution.share)}</span>
                   {" · "}
                 </>
               )}

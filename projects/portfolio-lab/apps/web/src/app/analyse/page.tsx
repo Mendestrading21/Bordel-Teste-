@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { ASSET_TYPE_LABEL, type AssetType, type CurrencyCode } from "@portfolio-lab/domain";
 import { allocate, type AllocationSlice } from "@portfolio-lab/portfolio-engine";
-import { formatPercent } from "@portfolio-lab/ui";
+import { formatShare } from "@portfolio-lab/ui";
 
 import { DemoBanner } from "@/components/demo-banner";
 import { EmptyState } from "@/components/empty-state";
@@ -51,7 +51,7 @@ function AllocationList({
               <div className="flex items-baseline justify-between gap-3 text-sm">
                 <span className="truncate text-primary">{labels.get(slice.key) ?? slice.key}</span>
                 <span className="shrink-0 text-secondary">
-                  <span className="pl-numeric">{formatPercent(slice.grossPct)}</span>
+                  <span className="pl-numeric">{formatShare(slice.grossPct)}</span>
                   {" · "}
                   <Money value={slice.marketValueBase} currency={currency} />
                 </span>

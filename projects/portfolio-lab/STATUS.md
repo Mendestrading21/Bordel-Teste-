@@ -4,7 +4,7 @@ Dernière mise à jour : 24 août 2026
 
 ## Phase
 
-**Design V2 — DS-08 : réglages, comptes, données et états**
+**Design V2 — terminée, DS-01 à DS-09 fusionnés**
 
 ## État global
 
@@ -61,7 +61,65 @@ intouchables ».
 | DS-06 | Analyse et graphiques               | terminé |
 | DS-07 | Fonds et options                    | terminé |
 | DS-08 | Réglages, comptes, données et états | terminé |
-| DS-09 | Polish, motion, accessibilité, PWA  | à faire |
+| DS-09 | Polish, motion, accessibilité, PWA  | terminé |
+
+### DS-09 — livrables vérifiés
+
+- **« animations réduites » vaut enfin pour tout l'écran.** Les tokens
+  `--pl-transition-*` passaient bien à zéro sous `prefers-reduced-motion`, mais
+  les utilitaires Tailwind retombaient sinon sur leurs 150 ms codés en dur :
+  seuls les composants qui pensaient à réécrire la durée en style inline
+  respectaient le réglage système. Les autres continuaient d'animer, et rien ne
+  le signalait. La durée par défaut est désormais rattachée au token dans le
+  thème — une ligne, qui vaut aussi pour les composants écrits plus tard. Les
+  huit réécritures en style inline ont disparu ;
+- **deux parcours E2E mesurent la durée calculée par le navigateur**, pas la
+  feuille de style : c'est la seule mesure qui prouve que le réglage arrive
+  jusqu'au pixel. Le second est un contrôle négatif — sans lui, le premier
+  passerait aussi si plus rien n'était animé nulle part ;
+- **balayage des cibles tactiles sur les cinq écrans peuplés**, aux quatre
+  tailles. Les parcours existants ne vérifiaient que la navigation basse, et
+  les écrans ont accumulé beaucoup d'autres commandes depuis. Le balayage a
+  immédiatement trouvé un défaut introduit au lot précédent : les onglets de
+  période de l'écran Analyse étaient à 34 px, sous le minimum de 44 px, et se
+  rataient au pouce. Vérifié par mutation : le test nomme les trois onglets
+  fautifs ;
+- **la provenance d'un chiffre s'ouvre au clavier.** Les dépliants portent
+  `list-none` pour retirer le triangle natif ; le retrait du marqueur ne doit
+  pas emporter le focus avec lui, sous peine de rendre le contenu inatteignable
+  sans souris ;
+- **deux tests unitaires** verrouillent la durée par défaut sur le token et
+  interdisent qu'une valeur en millisecondes la recopie en dur — ce qui
+  rendrait le réglage système inopérant pour toute l'application d'un coup.
+
+L'audit visuel final a trouvé un dernier défaut : **les pastilles d'identité
+rognaient leur symbole**. Un symbole de cinq caractères débordait de sa pastille
+et se retrouvait coupé des deux côtés — `DEMOW` de huit pixels — ce qui se lit
+comme un défaut d'affichage. Le symbole est désormais abrégé à quatre
+caractères, la pastille est partagée entre la liste et la fiche, et un parcours
+E2E compare la largeur de défilement de chaque pastille à sa largeur visible.
+Vérifié par mutation : il nomme les symboles fautifs et de combien ils
+débordent.
+
+Second défaut trouvé par l'audit : **les parts de répartition portaient un signe
+plus.** « +48.86 % » se lit comme une hausse — le signe plus annonce une
+variation, et une répartition n'en est pas une. Les deux notions partagent
+l'unité mais pas la lecture, et les confondre transformait chaque répartition en
+tableau de performance. Un `formatShare` distinct est introduit, sans signe pour
+les parts positives et conservant le moins d'une contribution négative au P&L ;
+`formatPercent` reste réservé aux variations. Quatre tests unitaires fixent la
+distinction.
+
+Troisième défaut, de lisibilité : sur 390 px, une valeur longue comme
+« Démonstration locale — données fictives » forçait le libellé **et** la valeur
+à se replier chacun sur deux lignes, ce qui donnait quatre fragments désalignés
+pour une seule information. Les lignes de réglage s'empilent désormais sous
+640 px et retrouvent leur alignement à droite au-delà.
+
+Vérifié sans modification nécessaire : contraste AA sur les quatre fonds pour
+les neuf couleurs porteuses de texte (36 combinaisons, déjà couvertes depuis
+DS-01), anneau de focus visible, `viewport-fit: cover` et `safe-area-inset`,
+manifeste installable et icône d'accueil iOS.
 
 ### DS-08 — livrables vérifiés
 

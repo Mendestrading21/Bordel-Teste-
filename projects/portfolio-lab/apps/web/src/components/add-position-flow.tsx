@@ -109,7 +109,6 @@ export function AddPositionFlow({
                   <Link
                     href="/ajouter/option"
                     className="flex min-h-[88px] flex-col justify-center gap-1 rounded-token-md border border-subtle bg-surface px-3 py-3 text-left transition-colors hover:bg-elevated"
-                    style={{ transitionDuration: "var(--pl-transition-fast)" }}
                   >
                     <span aria-hidden="true" className="text-xl">
                       {ASSET_ICON.OPTION}
@@ -133,7 +132,6 @@ export function AddPositionFlow({
                       ? "border-subtle bg-surface hover:bg-elevated"
                       : "border-subtle/50 bg-surface opacity-50",
                   )}
-                  style={{ transitionDuration: "var(--pl-transition-fast)" }}
                 >
                   <span aria-hidden="true" className="text-xl">
                     {ASSET_ICON[entry.key]}
