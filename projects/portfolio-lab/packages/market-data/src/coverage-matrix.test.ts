@@ -196,15 +196,58 @@ describe("probeInstrument", () => {
     expect(cell.reason).toContain("FX");
   });
 
-  it("rapporte ERROR avec la nature de la panne", async () => {
+  it("distingue un quota atteint d'une panne", async () => {
+    /*
+     * Un quota atteint laisse la couverture **indéterminée** : le fournisseur
+     * couvre peut-être l'instrument, on n'a simplement pas pu le vérifier.
+     * L'agréger à `ERROR` ferait conclure à un défaut de couverture.
+     */
     const failing = createMockProvider({
       instruments: KNOWN,
       now: NOW,
       failWith: new ProviderError("RATE_LIMITED", "mock", "quota dépassé", 60),
     });
     const cell = await probeInstrument(failing, apple);
-    expect(cell.outcome).toBe("ERROR");
+    expect(cell.outcome).toBe("RATE_LIMITED");
     expect(cell.reason).toContain("RATE_LIMITED");
+  });
+
+  it("distingue une clé refusée d'une panne", async () => {
+    const failing = createMockProvider({
+      instruments: KNOWN,
+      now: NOW,
+      failWith: new ProviderError("UNAUTHORIZED", "mock", "clé refusée"),
+    });
+    expect((await probeInstrument(failing, apple)).outcome).toBe("PLAN_REQUIRED");
+  });
+
+  it("distingue un réseau bloqué d'une clé refusée", async () => {
+    /*
+     * Le cas qui a motivé `egress.ts`. Un environnement à liste blanche répond
+     * lui-même `403`, que l'adaptateur traduit en `UNAUTHORIZED` : sans cette
+     * distinction, le rapport conclurait « clé refusée » pour tous les
+     * fournisseurs alors qu'aucune requête n'est sortie de la machine — et on
+     * chercherait une clé pour un problème qui est ailleurs.
+     */
+    const blocked = createMockProvider({
+      instruments: KNOWN,
+      now: NOW,
+      failWith: new ProviderError(
+        "UNAUTHORIZED",
+        "mock",
+        "HTTP 403 — Host not in allowlist: eodhd.com. Add this host to your network egress settings.",
+      ),
+    });
+    expect((await probeInstrument(blocked, apple)).outcome).toBe("BLOCKED_BY_NETWORK");
+  });
+
+  it("rapporte ERROR sur une réponse malformée", async () => {
+    const failing = createMockProvider({
+      instruments: KNOWN,
+      now: NOW,
+      failWith: new ProviderError("MALFORMED_RESPONSE", "mock", "charge utile illisible"),
+    });
+    expect((await probeInstrument(failing, apple)).outcome).toBe("ERROR");
   });
 });
 
