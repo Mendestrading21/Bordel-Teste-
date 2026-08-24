@@ -1,7 +1,9 @@
-import type { CurrencyCode } from "@portfolio-lab/domain";
+import { PRICE_TYPE_LABEL, type CurrencyCode } from "@portfolio-lab/domain";
 import { formatAmount, signOf } from "@portfolio-lab/ui";
 
 import type { ExcludedContract, OptionExposureRecord } from "@/lib/data/analytics";
+
+import { Card } from "./ui";
 
 /**
  * Exposition des options par sous-jacent.
@@ -40,7 +42,7 @@ export function OptionExposure({
   }
 
   return (
-    <section className="mt-4 rounded-token-lg border border-subtle bg-surface p-5">
+    <Card as="section" padding="md" className="mt-4">
       <h2 className="text-base font-medium text-primary">Exposition options</h2>
       <p className="mt-1 text-sm text-secondary">
         Le notionnel est calculé sur le multiplicateur réellement enregistré pour chaque contrat —
@@ -92,6 +94,17 @@ export function OptionExposure({
                     {exposure.underlyingLabel}
                     <span className="block text-xs text-secondary">
                       {exposure.contractCount} contrat{exposure.contractCount > 1 ? "s" : ""}
+                      {/*
+                       * La méthode de valorisation accompagne le chiffre : un
+                       * notionnel de plusieurs dizaines de milliers de francs
+                       * n'a pas le même poids selon qu'il repose sur un point
+                       * milieu de marché ou sur une saisie manuelle.
+                       */}
+                      {exposure.markMethods.length === 0
+                        ? null
+                        : ` · ${exposure.markMethods
+                            .map((method) => PRICE_TYPE_LABEL[method])
+                            .join(", ")}`}
                     </span>
                   </th>
                   <td className="pl-numeric py-2 pr-3 text-right whitespace-nowrap text-primary">
@@ -112,6 +125,6 @@ export function OptionExposure({
           </table>
         </div>
       )}
-    </section>
+    </Card>
   );
 }

@@ -6,7 +6,12 @@ import {
   snapshotRepository,
   type Database,
 } from "@portfolio-lab/database";
-import { toDecimalString, type CurrencyCode, type DecimalString } from "@portfolio-lab/domain";
+import {
+  toDecimalString,
+  type CurrencyCode,
+  type DecimalString,
+  type PriceType,
+} from "@portfolio-lab/domain";
 import {
   componentsFingerprint,
   dailyHistory,
@@ -63,6 +68,18 @@ export type OptionExposureRecord = {
   readonly marketValueBase: DecimalString;
   readonly notionalBase: DecimalString;
   readonly contractCount: number;
+  /**
+   * Méthodes de valorisation des contrats de cette ligne, sans doublon.
+   *
+   * Une exposition notionnelle de plusieurs dizaines de milliers de francs n'a
+   * pas le même poids selon qu'elle repose sur un point milieu de marché ou sur
+   * une saisie manuelle. Le chiffre seul ne le dit pas ; la méthode doit rester
+   * lisible à côté de lui.
+   *
+   * Plusieurs valeurs quand les contrats d'un même sous-jacent n'ont pas été
+   * valorisés de la même façon — le cas mérite d'être vu, pas moyenné.
+   */
+  readonly markMethods: readonly PriceType[];
 };
 
 export type AnalyticsView = {
@@ -188,6 +205,26 @@ export async function loadAnalytics(view: PortfolioView): Promise<AnalyticsView 
       );
       const exposures = optionExposure(inputs);
 
+      /*
+       * Méthodes de mark regroupées par sous-jacent.
+       *
+       * Dérivées ici, à partir des seules positions réellement retenues par
+       * `prepareOptionExposure` : les contrats écartés sont déjà comptés à
+       * part, et les inclure ferait mentionner une méthode qui n'a contribué à
+       * aucun chiffre affiché. Le moteur n'est pas modifié pour autant.
+       */
+      const priceTypeByPosition = new Map(
+        valuation.positions.map((position) => [position.positionId, position.priceType]),
+      );
+      const methodsByUnderlying = new Map<string, Set<PriceType>>();
+      for (const input of inputs) {
+        const priceType = priceTypeByPosition.get(input.positionId);
+        if (priceType === undefined) continue;
+        const set = methodsByUnderlying.get(input.underlyingId) ?? new Set<PriceType>();
+        set.add(priceType);
+        methodsByUnderlying.set(input.underlyingId, set);
+      }
+
       return {
         history: dailyHistory(records),
         options: exposures.map((exposure: UnderlyingExposure) => ({
@@ -196,6 +233,7 @@ export async function loadAnalytics(view: PortfolioView): Promise<AnalyticsView 
           marketValueBase: exposure.marketValueBase,
           notionalBase: exposure.notionalBase,
           contractCount: exposure.contractCount,
+          markMethods: [...(methodsByUnderlying.get(exposure.underlyingId) ?? [])],
         })),
         optionsExcluded: excluded,
       };
