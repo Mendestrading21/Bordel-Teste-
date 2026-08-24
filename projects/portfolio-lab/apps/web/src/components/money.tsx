@@ -1,4 +1,10 @@
-import { formatMoney, formatPercent, formatQuantity, signOf } from "@portfolio-lab/ui";
+import {
+  formatAmount,
+  formatMoney,
+  formatPercent,
+  formatQuantity,
+  signOf,
+} from "@portfolio-lab/ui";
 import type { CurrencyCode, DecimalString } from "@portfolio-lab/domain";
 
 const SIGN_CLASS = {
@@ -7,17 +13,38 @@ const SIGN_CLASS = {
   neutral: "text-primary",
 } as const;
 
-/** Montant formaté, en chasse tabulaire pour rester aligné en colonne. */
+/**
+ * Montant formaté, en chasse tabulaire pour rester aligné en colonne.
+ *
+ * `bare` retire le code de devise. Réservé aux endroits où la devise est
+ * portée par le contexte immédiat — un en-tête de tableau, un bloc dont le
+ * chiffre dominant l'affiche déjà. Le code reste dans le texte accessible :
+ * un montant sans devise est ambigu pour qui ne voit pas la mise en page.
+ *
+ * La raison n'est pas esthétique. Sur 390 px, trois montants en colonne avec
+ * leur « CHF » ne tiennent pas, et le navigateur tronque — un chiffre financier
+ * coupé est pire qu'absent, puisqu'il se lit encore.
+ */
 export function Money({
   value,
   currency,
   colored = false,
+  bare = false,
 }: Readonly<{
   value: DecimalString;
   currency: CurrencyCode;
   colored?: boolean;
+  bare?: boolean;
 }>): React.JSX.Element {
   const tone = colored ? SIGN_CLASS[signOf(value)] : "text-primary";
+  if (bare) {
+    return (
+      <span className={`pl-numeric ${tone}`}>
+        {formatAmount(value, currency)}
+        <span className="sr-only"> {currency}</span>
+      </span>
+    );
+  }
   return <span className={`pl-numeric ${tone}`}>{formatMoney(value, currency)}</span>;
 }
 
