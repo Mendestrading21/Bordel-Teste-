@@ -1,4 +1,4 @@
-import { isCurrencyCode, toDecimalString, type CurrencyCode } from "@portfolio-lab/domain";
+import { toDecimalString, type CurrencyCode } from "@portfolio-lab/domain";
 
 import {
   ProviderError,
@@ -162,7 +162,6 @@ export function createCoinGeckoProvider(options: CoinGeckoProviderOptions): Mark
     if (ref.kind !== "TICKER") return null;
     const results = await search({ text: ref.ticker, assetTypes: ["CRYPTO"], limit: 50 });
     const exact = results.filter((item) => item.name.toLowerCase() === ref.ticker.toLowerCase() || item.providerSymbol.toLowerCase() === ref.ticker.toLowerCase());
-    // Un ticker crypto est ambigu par nature. Un seul résultat exact est exigé.
     if (exact.length !== 1) return null;
     const hit = exact[0]!;
     return { provider: COINGECKO_PROVIDER_ID, providerSymbol: hit.providerSymbol, name: hit.name, assetType: "CRYPTO", currency: quoteCurrency, exchangeMic: null, isin: null, optionContract: null };
@@ -179,7 +178,6 @@ export function createCoinGeckoProvider(options: CoinGeckoProviderOptions): Mark
         fx: false,
         history: true,
         streaming: false,
-        // REST CoinGecko est mis en cache et ne doit pas être présenté comme tick-by-tick.
         bestFreshness: "DELAYED",
         delayMinutes: null,
       };
