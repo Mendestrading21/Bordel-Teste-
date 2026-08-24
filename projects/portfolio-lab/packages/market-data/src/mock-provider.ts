@@ -1,4 +1,9 @@
-import { toDecimalString, type CurrencyCode, type DecimalString } from "@portfolio-lab/domain";
+import {
+  ASSET_TYPES,
+  toDecimalString,
+  type CurrencyCode,
+  type DecimalString,
+} from "@portfolio-lab/domain";
 
 import {
   ProviderError,
@@ -106,7 +111,12 @@ export function createMockProvider(options: MockProviderOptions): MarketDataProv
 
     capabilities(): ProviderCapabilities {
       return {
-        assetTypes: ["STOCK", "ETF", "OPTION", "MUTUAL_FUND", "CASH", "OTHER"],
+        /*
+         * Toute la taxonomie, et non une liste recopiée : le fournisseur simulé
+         * sert de référence exécutable du contrat, et un type d'actif qu'il ne
+         * déclare pas ne serait couvert par aucun test de contrat.
+         */
+        assetTypes: ASSET_TYPES,
         searchByText: true,
         searchByIsin: true,
         optionChains: true,

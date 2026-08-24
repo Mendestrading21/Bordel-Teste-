@@ -2,7 +2,7 @@
   "name": "portfolio-lab",
   "version": "0.1.0",
   "private": true,
-  "description": "PortfolioLab \u2014 PWA priv\u00e9e de suivi patrimonial manuel (actions, ETF, options, fonds, cash) consolid\u00e9 en CHF.",
+  "description": "PortfolioLab — PWA privée de suivi patrimonial multi-actifs consolidé en CHF.",
   "license": "UNLICENSED",
   "packageManager": "pnpm@10.4.1",
   "engines": {
@@ -24,7 +24,8 @@
     "setup": "tsx scripts/setup.mts",
     "demo": "tsx scripts/setup.mts --demo",
     "icons": "node scripts/generate-icons.mjs",
-    "coverage:matrix": "tsx scripts/coverage-matrix.mts"
+    "coverage:matrix": "tsx scripts/coverage-matrix.mts",
+    "market:smoke": "tsx scripts/market-data-smoke.mts"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

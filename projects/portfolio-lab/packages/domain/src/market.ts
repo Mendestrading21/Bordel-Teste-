@@ -21,7 +21,6 @@ export type QuoteFreshness = (typeof QUOTE_FRESHNESS)[number];
 
 export const quoteFreshnessSchema = z.enum(QUOTE_FRESHNESS);
 
-/** Libellés utilisateur, alignés sur `references/UX_UI.md`. */
 export const QUOTE_FRESHNESS_LABEL: Readonly<Record<QuoteFreshness, string>> = {
   LIVE: "En direct",
   DELAYED: "Différé",
@@ -32,7 +31,6 @@ export const QUOTE_FRESHNESS_LABEL: Readonly<Record<QuoteFreshness, string>> = {
   UNAVAILABLE: "Indisponible",
 };
 
-/** Nature du prix retenu pour valoriser une position. */
 export const PRICE_TYPES = [
   "LAST_TRADE",
   "MID",
@@ -57,8 +55,28 @@ export const PRICE_TYPE_LABEL: Readonly<Record<PriceType, string>> = {
   MANUAL: "Saisie manuelle",
 };
 
-/** Classes d'actifs supportées en V1. */
-export const ASSET_TYPES = ["STOCK", "ETF", "OPTION", "MUTUAL_FUND", "CASH", "OTHER"] as const;
+/**
+ * Taxonomie universelle de PortfolioLab.
+ *
+ * Elle reste volontairement métier : une source de marché peut avoir cent
+ * sous-types, mais l'application les normalise dans ces familles stables.
+ */
+export const ASSET_TYPES = [
+  "STOCK",
+  "ETF",
+  "OPTION",
+  "MUTUAL_FUND",
+  "BOND",
+  "CRYPTO",
+  "FX",
+  "INDEX",
+  "FUTURE",
+  "COMMODITY",
+  "STRUCTURED_PRODUCT",
+  "PRIVATE_ASSET",
+  "CASH",
+  "OTHER",
+] as const;
 
 export type AssetType = (typeof ASSET_TYPES)[number];
 
@@ -69,6 +87,14 @@ export const ASSET_TYPE_LABEL: Readonly<Record<AssetType, string>> = {
   ETF: "ETF",
   OPTION: "Option",
   MUTUAL_FUND: "Fonds de placement",
+  BOND: "Obligation",
+  CRYPTO: "Crypto",
+  FX: "Devise / FX",
+  INDEX: "Indice",
+  FUTURE: "Future",
+  COMMODITY: "Matière première",
+  STRUCTURED_PRODUCT: "Produit structuré",
+  PRIVATE_ASSET: "Actif privé",
   CASH: "Liquidités",
   OTHER: "Autre",
 };
@@ -79,11 +105,6 @@ export type MarketState = (typeof MARKET_STATES)[number];
 
 export const marketStateSchema = z.enum(MARKET_STATES);
 
-/**
- * `true` si la fraîcheur correspond à une donnée effectivement exploitable
- * pour une valorisation. `STALE` reste exploitable mais doit être signalée ;
- * `UNAVAILABLE` ne l'est pas.
- */
 export function isValuable(freshness: QuoteFreshness): boolean {
   return freshness !== "UNAVAILABLE";
 }
