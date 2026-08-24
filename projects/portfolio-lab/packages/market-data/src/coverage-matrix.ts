@@ -225,6 +225,41 @@ export async function probeInstrument(
     );
   }
 
+  /*
+   * Couverture déclarée vérifiée **avant** l'appel.
+   *
+   * Sans ce contrôle, un fournisseur qui décline la classe d'actif rend `null`
+   * depuis `resolve` sans avoir rien interrogé, et la cellule devient
+   * `NOT_FOUND` — « interrogé, introuvable ». C'est faux et c'est trompeur :
+   * on lit un défaut de couverture du fournisseur là où il s'agit d'une classe
+   * qu'il n'a jamais prétendu couvrir.
+   */
+  const capabilities = provider.capabilities();
+  /*
+   * `assetType` est une chaîne libre dans la définition JSON de la matrice —
+   * elle est écrite à la main. La comparaison passe donc par une projection en
+   * chaînes plutôt que par un transtypage : un type inconnu doit être rapporté
+   * comme non couvert, jamais accepté par une assertion complaisante.
+   */
+  const declared: readonly string[] = capabilities.assetTypes;
+  if (!declared.includes(instrument.assetType)) {
+    return blankCell(
+      provider.id,
+      instrument.id,
+      "UNSUPPORTED",
+      `Le fournisseur ne déclare pas la classe ${instrument.assetType}`,
+    );
+  }
+
+  if (reference.kind === "ISIN" && !capabilities.searchByIsin) {
+    return blankCell(
+      provider.id,
+      instrument.id,
+      "UNSUPPORTED",
+      "Le fournisseur ne déclare pas la recherche par ISIN",
+    );
+  }
+
   try {
     const resolved = await provider.resolve(reference);
     if (resolved === null) {

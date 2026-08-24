@@ -366,16 +366,27 @@ test.describe("état des fournisseurs de données", () => {
   test("liste les fournisseurs, y compris ceux jamais appelés", async ({ page }) => {
     await page.goto("/reglages");
     await expect(page.getByRole("heading", { name: "Fournisseurs de données" })).toBeVisible();
-    for (const label of ["Twelve Data", "Massive", "EODHD", "OpenFIGI"]) {
+    for (const label of ["Twelve Data", "Massive", "EODHD", "CoinGecko", "OpenFIGI"]) {
       await expect(page.getByText(label, { exact: true })).toBeVisible();
     }
   });
 
-  test("annonce qu'aucun fournisseur réel n'a été appelé", async ({ page }) => {
+  test("ne présente aucun fournisseur comme éprouvé en production", async ({ page }) => {
+    /*
+     * L'invariant produit, formulé sur ce qui doit rester vrai plutôt que sur
+     * l'état du moment. Quatre adaptateurs existent désormais et sont testés
+     * sur fixtures ; aucun n'a pour autant jamais parlé à son API, et écrire un
+     * client HTTP ne prouve pas qu'il fonctionne.
+     *
+     * La version précédente comptait les « jamais appelé » : elle mesurait
+     * l'absence d'implémentation, pas l'absence de preuve. Elle serait devenue
+     * fausse dès le premier adaptateur écrit, ce qui est exactement ce qui
+     * vient d'arriver.
+     */
     await page.goto("/reglages");
-    const neverCalled = page.getByText("Non vérifié — jamais appelé");
-    // Les quatre candidats sont dans cet état.
-    await expect(neverCalled).toHaveCount(4);
+    const body = (await page.textContent("body")) ?? "";
+    expect(body).not.toContain("Appel production réellement effectué");
+    expect(body).not.toContain("Appel sandbox réellement effectué");
   });
 
   test("indique le nom de la variable de clé, jamais une valeur", async ({ page }) => {
@@ -387,10 +398,16 @@ test.describe("état des fournisseurs de données", () => {
     expect(body).not.toMatch(/[A-Za-z0-9]{32,}/);
   });
 
-  test("aucun fournisseur réel n'est présenté comme utilisable", async ({ page }) => {
+  test("dit pour chaque fournisseur ce qui manque encore", async ({ page }) => {
+    /*
+     * Un fournisseur listé sans motif de blocage se lirait comme prêt. Chacun
+     * doit donc porter la raison qui l'empêche de monter d'un cran : soit
+     * l'adaptateur n'existe pas, soit il n'a jamais été confronté à l'API.
+     */
     await page.goto("/reglages");
     const body = (await page.textContent("body")) ?? "";
     expect(body).toContain("Adaptateur non implémenté");
+    expect(body).toContain("testé sur fixtures");
   });
 });
 

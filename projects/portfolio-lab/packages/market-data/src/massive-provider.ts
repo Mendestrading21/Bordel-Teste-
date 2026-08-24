@@ -53,6 +53,33 @@ export type MassiveProviderOptions = {
  * La séparation est délibérée : le jour où l'accès existera, corriger la forme
  * du fil ne touchera que l'extraction, jamais les règles métier.
  */
+/**
+ * Extrait un extrait du corps d'une réponse en erreur.
+ *
+ * Sans lui, un `403` ne laisse que son code — et un `403` d'une passerelle
+ * réseau à liste blanche devient indiscernable d'un `403` du fournisseur. Le
+ * rapport de couverture conclut alors « clé refusée » alors que la requête
+ * n'a jamais quitté la machine, et on cherche une clé pour un problème qui est
+ * ailleurs.
+ *
+ * Le corps est tronqué : il sert à diagnostiquer, pas à être journalisé en
+ * entier. Une lecture qui échoue rend une chaîne vide plutôt que de masquer
+ * l'erreur d'origine.
+ */
+async function errorBody(response: Response): Promise<string> {
+  try {
+    const text = await response.text();
+    return text.trim().slice(0, 300);
+  } catch {
+    return "";
+  }
+}
+
+/** Message d'erreur HTTP incluant l'extrait de corps quand il existe. */
+function httpMessage(prefix: string, status: number, body: string): string {
+  return body === "" ? `${prefix} HTTP ${status}` : `${prefix} HTTP ${status} — ${body}`;
+}
+
 export function createMassiveProvider(options: MassiveProviderOptions): MarketDataProvider {
   const fetchImpl = options.fetchImpl ?? fetch;
   const baseUrl = (options.baseUrl ?? "https://api.massive.com").replace(/\/$/, "");
@@ -86,7 +113,7 @@ export function createMassiveProvider(options: MassiveProviderOptions): MarketDa
         throw new ProviderError(
           "UNAUTHORIZED",
           MASSIVE_PROVIDER_ID,
-          `Massive a refusé la clé (HTTP ${response.status})`,
+          httpMessage("Massive", response.status, await errorBody(response)),
         );
       }
       if (response.status === 429) {
@@ -105,7 +132,7 @@ export function createMassiveProvider(options: MassiveProviderOptions): MarketDa
         throw new ProviderError(
           "NETWORK",
           MASSIVE_PROVIDER_ID,
-          `Massive a répondu HTTP ${response.status}`,
+          httpMessage("Massive", response.status, await errorBody(response)),
         );
       }
       return await response.json();
