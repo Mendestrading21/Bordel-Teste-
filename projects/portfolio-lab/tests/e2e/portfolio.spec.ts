@@ -55,6 +55,33 @@ test.describe("tableau de bord", () => {
     ).toBeLessThanOrEqual(CHROME_BUDGET_PX);
   });
 
+  test("n'affiche aucun montant tronqué", async ({ page }, testInfo) => {
+    /*
+     * Un chiffre financier coupé est pire qu'absent : il se lit encore.
+     * « CHF 31'297.30 » rendu « CHF 31'297… » ressemble à un montant valide et
+     * en désigne un autre.
+     *
+     * Le défaut s'est produit deux fois — au Lot 08 dans un tableau
+     * d'exposition, puis ici avec trois montants en colonne sur 390 px. Le
+     * contrôle est donc permanent plutôt que ponctuel.
+     *
+     * On compare `scrollWidth` à `clientWidth` : c'est ce que fait réellement
+     * le navigateur quand il tronque, et c'est indépendant de la police, de la
+     * langue et de la longueur du montant.
+     */
+    await page.goto("/");
+
+    const truncated = await page.evaluate(() =>
+      [...document.querySelectorAll(".pl-numeric, dd, td, th")]
+        .filter(
+          (element) => element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1,
+        )
+        .map((element) => (element.textContent ?? "").trim().slice(0, 40)),
+    );
+
+    expect(truncated, `${testInfo.project.name} : montants tronqués`).toEqual([]);
+  });
+
   test("annonce en permanence que les données sont fictives", async ({ page }) => {
     await page.goto("/");
     const banner = page.getByRole("note");
@@ -83,13 +110,18 @@ test.describe("tableau de bord", () => {
 
   test("explique pourquoi la variation du jour n'est pas calculable", async ({ page }) => {
     await page.goto("/");
-    // Le fonds n'a pas de clôture précédente : un total partiel serait trompeur.
-    await expect(page.getByText(/Non calculable/)).toBeVisible();
+    /*
+     * Le fonds n'a pas de clôture précédente : un total partiel serait
+     * trompeur. L'explication doit rester **visible** et non reléguée dans une
+     * infobulle — sur un téléphone il n'y a pas de survol.
+     */
+    await expect(page.getByText("non calculable")).toBeVisible();
+    await expect(page.getByText(/clôture précédente connue/)).toBeVisible();
   });
 
   test("affiche P&L latent, performance et capital investi", async ({ page }) => {
     await page.goto("/");
-    for (const label of ["P&L latent", "Performance", "Capital investi"]) {
+    for (const label of ["P&L latent", "Performance", "Investi"]) {
       await expect(page.getByText(label, { exact: true })).toBeVisible();
     }
   });

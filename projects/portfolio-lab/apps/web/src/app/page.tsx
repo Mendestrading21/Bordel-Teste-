@@ -1,30 +1,21 @@
-import { BASE_CURRENCY, type CurrencyCode } from "@portfolio-lab/domain";
-import { portfolioReturn } from "@portfolio-lab/portfolio-engine";
+import { BASE_CURRENCY, type AssetType, type CurrencyCode } from "@portfolio-lab/domain";
+import { allocate, portfolioReturn } from "@portfolio-lab/portfolio-engine";
 
 import { DataHealth } from "@/components/data-health";
 import { DemoBanner } from "@/components/demo-banner";
 import { EmptyState } from "@/components/empty-state";
-import { FreshnessBadge } from "@/components/freshness-badge";
-import { Money, Percent } from "@/components/money";
 import { PageHeader } from "@/components/page-header";
+import {
+  AllocationSummary,
+  WealthHero,
+  WealthMetrics,
+  type AllocationRow,
+} from "@/components/wealth-hero";
 import { SessionNotice } from "@/components/session-notice";
 import { getServerSessionState } from "@/lib/auth/server";
 import { loadPortfolioView } from "@/lib/data/portfolio";
 
 export const dynamic = "force-dynamic";
-
-/** Indicateur secondaire du tableau de bord. */
-function Metric({
-  label,
-  children,
-}: Readonly<{ label: string; children: React.ReactNode }>): React.JSX.Element {
-  return (
-    <div className="rounded-token-md border border-subtle bg-surface px-4 py-3">
-      <dt className="text-xs tracking-wide text-secondary uppercase">{label}</dt>
-      <dd className="mt-1 text-base font-medium">{children}</dd>
-    </div>
-  );
-}
 
 export default async function AccueilPage(): Promise<React.JSX.Element> {
   const session = getServerSessionState();
@@ -41,6 +32,31 @@ export default async function AccueilPage(): Promise<React.JSX.Element> {
    * flottant sur le chiffre le plus regardé de l'écran.
    */
   const pnlPct = valuation === null ? null : portfolioReturn(valuation);
+
+  /*
+   * Répartition par classe d'actifs, réduite aux cinq premières parts.
+   *
+   * L'accueil répond à « comment est-ce réparti », pas à « donne-moi le détail
+   * exhaustif » — c'est le rôle de l'écran Analyse. Au-delà de cinq lignes, la
+   * liste cesse d'être lisible d'un coup d'œil et devient un tableau.
+   */
+  const positionById = new Map(view.positions.map((position) => [position.positionId, position]));
+  const allocationRows: readonly AllocationRow[] =
+    valuation === null
+      ? []
+      : allocate(
+          valuation.positions.map((value) => ({
+            key: positionById.get(value.positionId)?.assetType ?? "OTHER",
+            marketValueBase: value.marketValueBase,
+          })),
+        )
+          .map((slice) => ({
+            assetType: slice.key as AssetType,
+            // `grossPct` est une fraction ; l'affichage attend un pourcentage.
+            sharePct: Number(slice.grossPct) * 100,
+          }))
+          .sort((a, b) => b.sharePct - a.sharePct)
+          .slice(0, 5);
 
   return (
     <>
@@ -84,49 +100,17 @@ export default async function AccueilPage(): Promise<React.JSX.Element> {
         )
       ) : (
         <>
-          <section
-            aria-labelledby="patrimoine-total"
-            className="rounded-token-lg border border-subtle bg-surface px-5 py-6"
-          >
-            <h2 id="patrimoine-total" className="text-xs tracking-wide text-secondary uppercase">
-              Patrimoine total
-            </h2>
-            <p className="mt-2 text-3xl font-semibold tracking-tight">
-              <Money value={valuation.totalMarketValueBase} currency={currency} />
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <FreshnessBadge freshness={valuation.worstFreshness} asOf={view.marksAsOf} />
-              <span className="text-xs text-secondary">
-                {valuation.positions.length} position{valuation.positions.length > 1 ? "s" : ""}
-              </span>
-            </div>
-          </section>
+          <WealthHero
+            valuation={valuation}
+            currency={currency}
+            marksAsOf={view.marksAsOf}
+            positionCount={valuation.positions.length}
+            returnPct={pnlPct}
+          />
 
-          <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Metric label="P&L latent">
-              <Money value={valuation.totalUnrealizedPnlBase} currency={currency} colored />
-            </Metric>
-            <Metric label="Performance">
-              <Percent value={pnlPct} />
-            </Metric>
-            <Metric label="Capital investi">
-              <Money value={valuation.totalCostBasisBase} currency={currency} />
-            </Metric>
-          </dl>
+          <WealthMetrics valuation={valuation} currency={currency} returnPct={pnlPct} />
 
-          <section className="mt-4 rounded-token-md border border-subtle bg-surface px-4 py-3">
-            <h2 className="text-xs tracking-wide text-secondary uppercase">Variation du jour</h2>
-            {valuation.totalDayPnlBase === null ? (
-              <p className="mt-1 text-sm text-secondary">
-                Non calculable : au moins une position n&apos;a pas de clôture précédente connue.
-                Afficher un total partiel serait trompeur.
-              </p>
-            ) : (
-              <p className="mt-1 text-base font-medium">
-                <Money value={valuation.totalDayPnlBase} currency={currency} colored />
-              </p>
-            )}
-          </section>
+          <AllocationSummary rows={allocationRows} />
 
           <DataHealth valuation={valuation} />
         </>

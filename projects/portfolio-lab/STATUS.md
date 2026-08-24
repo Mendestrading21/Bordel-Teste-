@@ -4,7 +4,7 @@ Dernière mise à jour : 24 août 2026
 
 ## Phase
 
-**Design V2 — DS-02 : coquille, en-tête et navigation**
+**Design V2 — DS-03 : accueil et patrimoine**
 
 ## État global
 
@@ -62,6 +62,32 @@ intouchables ».
 | DS-07 | Fonds et options                    | à faire |
 | DS-08 | Réglages, comptes, données et états | à faire |
 | DS-09 | Polish, motion, accessibilité, PWA  | à faire |
+
+### DS-03 — livrables vérifiés
+
+- **hero patrimoine** : le total porte enfin la taille dominante, et la
+  variation du jour le rejoint dans le même bloc — « ce que je possède » et
+  « combien cela a bougé » forment une seule question ;
+- **indicateurs sur une rangée** : trois cartes pleine largeur empilées, soit
+  près de 210 px pour trois nombres courts, deviennent une grille de trois
+  colonnes lisible d'un coup d'œil ;
+- **répartition par classe d'actifs** directement sur l'accueil, en barres
+  proportionnelles avec émoji sémantique, limitée aux cinq premières parts ;
+- **variante `bare` de `Money`** : le code de devise est annoncé une fois pour
+  les trois colonnes au lieu d'être répété. Sur 390 px, trois montants avec
+  leur « CHF » ne tenaient pas et le navigateur tronquait `CHF 31'297.30` en
+  `CHF 31'297…` ;
+- **garde-fou permanent contre la troncature** : un parcours E2E compare
+  `scrollWidth` à `clientWidth` sur tout élément numérique, aux quatre tailles.
+  Le défaut s'était déjà produit au Lot 08 dans un tableau d'exposition ;
+  vérifié par mutation, il échoue bien sur iPhone 390 dès qu'on rétablit le
+  préfixe de devise.
+
+Régression corrigée pendant le lot : la première version remplaçait
+l'explication du total non calculable par un tiret et une infobulle. Sur un
+téléphone il n'y a pas de survol — un utilisateur voyant n'avait plus aucune
+explication. Elle est redevenue une ligne visible, affichée seulement dans ce
+cas.
 
 ### DS-02 — livrables vérifiés
 
