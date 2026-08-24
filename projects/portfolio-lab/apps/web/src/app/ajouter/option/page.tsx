@@ -53,7 +53,7 @@ function Step({
       <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
         <span
           className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-token-pill border text-xs ${
-            done ? "border-copper text-copper" : "border-subtle text-secondary"
+            done ? "border-accent text-accent" : "border-subtle text-secondary"
           }`}
         >
           {number}
@@ -75,7 +75,7 @@ function Choice({
       href={href as never}
       className={`inline-flex min-h-[var(--pl-touch-target)] items-center justify-center rounded-token-md border px-4 text-sm transition-colors ${
         selected
-          ? "border-copper bg-elevated text-copper"
+          ? "border-accent bg-elevated text-accent"
           : "border-subtle text-secondary hover:text-primary"
       }`}
       style={{ transitionDuration: "var(--pl-transition-fast)" }}
@@ -170,7 +170,7 @@ export default async function AjouterOptionPage({
 
   return (
     <>
-      <Link href="/ajouter" className="mb-4 inline-block text-sm text-copper hover:underline">
+      <Link href="/ajouter" className="mb-4 inline-block text-sm text-accent hover:underline">
         ← Retour à l&apos;ajout
       </Link>
       <PageHeader
@@ -354,7 +354,7 @@ export default async function AjouterOptionPage({
                   L&apos;enregistrement d&apos;une position d&apos;option depuis cet écran arrive
                   avec le premier fournisseur réel. En attendant, la position peut être saisie
                   manuellement depuis{" "}
-                  <Link href="/ajouter" className="text-copper hover:underline">
+                  <Link href="/ajouter" className="text-accent hover:underline">
                     l&apos;ajout standard
                   </Link>
                   .

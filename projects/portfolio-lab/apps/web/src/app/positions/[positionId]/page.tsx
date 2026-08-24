@@ -50,7 +50,7 @@ export default async function PositionDetailPage({
 
   return (
     <>
-      <Link href="/positions" className="mb-4 inline-block text-sm text-copper hover:underline">
+      <Link href="/positions" className="mb-4 inline-block text-sm text-accent hover:underline">
         ← Retour aux positions
       </Link>
       <PageHeader

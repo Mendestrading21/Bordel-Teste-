@@ -69,7 +69,7 @@ export default async function AjouterPage(): Promise<React.JSX.Element> {
         </p>
         <Link
           href="/ajouter/option"
-          className="inline-flex min-h-[var(--pl-touch-target)] items-center text-sm text-copper hover:underline"
+          className="inline-flex min-h-[var(--pl-touch-target)] items-center text-sm text-accent hover:underline"
         >
           Sélection guidée d&apos;une option →
         </Link>

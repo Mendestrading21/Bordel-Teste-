@@ -31,7 +31,7 @@ export function BottomNav(): React.JSX.Element {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={`flex min-h-[var(--pl-touch-target)] flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium transition-colors ${
-                  active ? "text-copper" : "text-secondary hover:text-primary"
+                  active ? "text-accent" : "text-secondary hover:text-primary"
                 }`}
                 style={{ transitionDuration: "var(--pl-transition-fast)" }}
               >

@@ -1,10 +1,10 @@
 # PortfolioLab — Status
 
-Dernière mise à jour : 23 août 2026
+Dernière mise à jour : 24 août 2026
 
 ## Phase
 
-**Lot 10 — Release candidate 1.0**
+**Design V2 — DS-01 : tokens et primitives**
 
 ## État global
 
@@ -43,6 +43,48 @@ Dernière mise à jour : 23 août 2026
 | 08  | Dashboard et analyse                              | terminé, fusionné |
 | 09  | Fiabilité, PWA et sécurité                        | terminé, fusionné |
 | 10  | Release candidate 1.0                             | terminé           |
+
+## Refonte Design V2
+
+Direction visuelle : bleu-nuit, trois niveaux de surface, accent chartreuse.
+Aucun calcul financier, aucune règle de sécurité et aucune migration ne sont
+touchés par cette refonte — voir `docs/design-v2/audit.md`, section « modules
+intouchables ».
+
+| Lot   | Objet                               | État    |
+| ----- | ----------------------------------- | ------- |
+| DS-01 | Tokens et primitives                | terminé |
+| DS-02 | Shell, en-tête, navigation mobile   | à faire |
+| DS-03 | Accueil et patrimoine               | à faire |
+| DS-04 | Positions et fiche détaillée        | à faire |
+| DS-05 | Parcours d'ajout simplifié          | à faire |
+| DS-06 | Analyse et graphiques               | à faire |
+| DS-07 | Fonds et options                    | à faire |
+| DS-08 | Réglages, comptes, données et états | à faire |
+| DS-09 | Polish, motion, accessibilité, PWA  | à faire |
+
+### DS-01 — livrables vérifiés
+
+- **palette bleu-nuit à quatre fonds** (`canvas`, `surface`, `elevated`,
+  `raised`) : la profondeur vient de la teinte et non d'ombres portées, qui ne
+  se voient pas sur un fond aussi sombre ;
+- **accent chartreuse** en remplacement du cuivre `#C87F4A`, qui n'était qu'à
+  12 degrés de teinte de l'ambre d'avertissement `#E0A458` : « fais ceci » et
+  « attention » se ressemblaient. Un test d'écart de teinte ferme la porte à
+  une dérive du même genre — il échoue si l'ancienne valeur revient ;
+- **contraste AA vérifié sur les quatre fonds** et non plus sur deux : les 36
+  combinaisons texte/fond passent, la plus juste à 4.55:1 ;
+- **primitives** `Card`, `Stat`, `Chip`, `Section`, `Button` et `ButtonLink`,
+  avec tables de classes testées : cible tactile de 44 px garantie à toutes
+  les tailles de bouton, aplat d'accent réservé à la variante primaire, ton
+  défini pour chaque état ;
+- **script de captures** `scripts/design-shots.mjs`, qui produit les paires
+  AVANT / APRÈS de chaque lot sur 390×844, 430×932 et desktop.
+
+Régression détectée et corrigée pendant le lot : la première version de `Card`
+rendait toujours un `div`, ce qui supprimait silencieusement les repères
+`<section>` des blocs Sauvegarde et Suppression. Les parcours E2E l'ont
+attrapée ; `Card` accepte désormais la balise à rendre.
 
 ## Lot 10 — livrables vérifiés
 

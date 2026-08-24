@@ -4,17 +4,22 @@
  * `tokens-sync.test.ts`.
  */
 :root {
-  --pl-background-canvas: #0b0e11;
-  --pl-background-surface: #12161b;
-  --pl-background-elevated: #1a2027;
-  --pl-border-subtle: #262e37;
-  --pl-text-primary: #eceff3;
-  --pl-text-secondary: #9aa6b2;
-  --pl-accent-copper: #c87f4a;
-  --pl-positive: #4fb286;
-  --pl-negative: #e06c68;
-  --pl-warning: #e0a458;
-  --pl-stale: #8c93a1;
+  --pl-background-canvas: #060d18;
+  --pl-background-surface: #0e1725;
+  --pl-background-elevated: #16202f;
+  --pl-background-surface3: #1d2839;
+  --pl-border-subtle: #1e2836;
+  --pl-border-strong: #2c3a4d;
+  --pl-text-primary: #eef2f7;
+  --pl-text-secondary: #9fb0c4;
+  --pl-text-tertiary: #7e90a8;
+  --pl-accent-lime: #c6f04a;
+  --pl-accent-foreground: #0a1005;
+  --pl-positive: #63d89a;
+  --pl-negative: #f2607e;
+  --pl-info: #4cc9f0;
+  --pl-warning: #f0b450;
+  --pl-stale: #8290a4;
 
   --pl-space-xs: 4px;
   --pl-space-sm: 8px;

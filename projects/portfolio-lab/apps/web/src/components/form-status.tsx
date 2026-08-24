@@ -4,6 +4,8 @@ import { useFormStatus } from "react-dom";
 
 import type { ActionResult } from "@/lib/data/validation";
 
+import { Button } from "./ui";
+
 /**
  * Bouton de soumission désactivé pendant l'envoi.
  *
@@ -15,14 +17,9 @@ export function SubmitButton({
 }: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex min-h-[var(--pl-touch-target)] w-full items-center justify-center rounded-token-md border border-copper px-5 text-sm font-medium text-copper transition-colors hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-50"
-      style={{ transitionDuration: "var(--pl-transition-fast)" }}
-    >
+    <Button type="submit" variant="primary" disabled={pending} className="w-full">
       {pending ? "Enregistrement…" : children}
-    </button>
+    </Button>
   );
 }
 
