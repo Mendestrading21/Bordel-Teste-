@@ -193,17 +193,67 @@ export function createCoinGeckoProvider(options: CoinGeckoProviderOptions): Mark
       };
     }
     if (ref.kind !== "TICKER") return null;
-    const results = await search({ text: ref.ticker, assetTypes: ["CRYPTO"], limit: 50 });
-    const exact = results.filter(
-      (item) =>
-        item.name.toLowerCase() === ref.ticker.toLowerCase() ||
-        item.providerSymbol.toLowerCase() === ref.ticker.toLowerCase(),
-    );
-    if (exact.length !== 1) return null;
-    const hit = exact[0]!;
+
+    /*
+     * La résolution par ticker travaille sur les lignes brutes et non sur les
+     * candidats normalisés, pour une raison précise : `providerSymbol` porte
+     * l'**identifiant CoinGecko** (`bitcoin`), pas le ticker (`btc`). L'ancien
+     * filtre comparait le ticker demandé à cet identifiant et au nom, si bien
+     * que résoudre « BTC » ne pouvait jamais aboutir — la recherche rendait
+     * pourtant des résultats. Le ticker n'existe que dans la ligne brute.
+     */
+    const rows = await marketSearch(ref.ticker);
+    const needle = ref.ticker.trim().toLowerCase();
+
+    const matches = rows.flatMap((row) => {
+      const id = str(row.id);
+      const symbol = str(row.symbol);
+      const name = str(row.name);
+      if (id === null || symbol === null || name === null) return [];
+      const isMatch =
+        symbol.toLowerCase() === needle ||
+        id.toLowerCase() === needle ||
+        name.toLowerCase() === needle;
+      if (!isMatch) return [];
+      const rank =
+        typeof row.market_cap_rank === "number" && row.market_cap_rank > 0
+          ? row.market_cap_rank
+          : null;
+      return [{ id, symbol, name, rank }];
+    });
+
+    if (matches.length === 0) return null;
+
+    if (matches.length > 1) {
+      /*
+       * Plusieurs jetons partagent le même ticker — c'est la règle plutôt que
+       * l'exception en crypto, où n'importe qui peut émettre un jeton nommé
+       * `UNI` ou `SOL`.
+       *
+       * Choisir le mieux classé serait le réflexe naturel et serait faux : un
+       * utilisateur qui détient le jeton obscur verrait son patrimoine
+       * valorisé au cours de l'homonyme capitalisé, sans rien pour le lui
+       * signaler. L'identifiant CoinGecko de chaque candidat figure dans le
+       * message, puisque c'est lui qui lève l'ambiguïté.
+       */
+      const ordered = [...matches].sort((a, b) => (a.rank ?? 1e9) - (b.rank ?? 1e9));
+      throw new ProviderError(
+        "AMBIGUOUS",
+        COINGECKO_PROVIDER_ID,
+        `${matches.length} actifs portent « ${ref.ticker} » : ${ordered
+          .map(
+            (item) =>
+              `${item.name} (id ${item.id}${item.rank === null ? "" : `, rang ${item.rank}`})`,
+          )
+          .join(", ")}. Précisez l'identifiant CoinGecko.`,
+      );
+    }
+
+    const hit = matches[0];
+    if (hit === undefined) return null;
     return {
       provider: COINGECKO_PROVIDER_ID,
-      providerSymbol: hit.providerSymbol,
+      providerSymbol: hit.id,
       name: hit.name,
       assetType: "CRYPTO",
       currency: quoteCurrency,
