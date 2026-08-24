@@ -50,16 +50,17 @@ export function createConfiguredProviders(env: NodeJS.ProcessEnv = process.env):
 
   if (config.providers.coingecko?.enabled) {
     const mode = config.providers.coingecko.mode;
-    if (mode === "live" && env.COINGECKO_API_KEY === undefined) {
+    const coinGeckoKey = env.COINGECKO_API_KEY;
+    if (mode === "live" && coinGeckoKey === undefined) {
       issues.push("coingecko: mode live sans COINGECKO_API_KEY");
     } else if (mode === "demo") {
       providers.push(createCoinGeckoProvider({
-        mode: env.COINGECKO_API_KEY === undefined ? "keyless" : "demo",
-        apiKey: env.COINGECKO_API_KEY,
+        mode: coinGeckoKey === undefined ? "keyless" : "demo",
+        ...(coinGeckoKey === undefined ? {} : { apiKey: coinGeckoKey }),
         timeoutMs,
       }));
-    } else if (mode === "live" && env.COINGECKO_API_KEY !== undefined) {
-      providers.push(createCoinGeckoProvider({ mode: "live", apiKey: env.COINGECKO_API_KEY, timeoutMs }));
+    } else if (mode === "live" && coinGeckoKey !== undefined) {
+      providers.push(createCoinGeckoProvider({ mode: "live", apiKey: coinGeckoKey, timeoutMs }));
     }
   }
 
