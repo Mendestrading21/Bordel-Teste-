@@ -19,3 +19,4 @@ export * from "./option-mark.js";
 export * from "./option-chain.js";
 export * from "./greeks.js";
 export * from "./demo-chain.js";
+export * from "./provider-health.js";
