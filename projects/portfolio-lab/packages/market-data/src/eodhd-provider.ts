@@ -212,6 +212,33 @@ function confidence(row: EodhdSearchRow, needle: string): number {
   return row.isPrimary === true ? 0.75 : 0.6;
 }
 
+/**
+ * Extrait un extrait du corps d'une réponse en erreur.
+ *
+ * Sans lui, un `403` ne laisse que son code — et un `403` d'une passerelle
+ * réseau à liste blanche devient indiscernable d'un `403` du fournisseur. Le
+ * rapport de couverture conclut alors « clé refusée » alors que la requête
+ * n'a jamais quitté la machine, et on cherche une clé pour un problème qui est
+ * ailleurs.
+ *
+ * Le corps est tronqué : il sert à diagnostiquer, pas à être journalisé en
+ * entier. Une lecture qui échoue rend une chaîne vide plutôt que de masquer
+ * l'erreur d'origine.
+ */
+async function errorBody(response: Response): Promise<string> {
+  try {
+    const text = await response.text();
+    return text.trim().slice(0, 300);
+  } catch {
+    return "";
+  }
+}
+
+/** Message d'erreur HTTP incluant l'extrait de corps quand il existe. */
+function httpMessage(prefix: string, status: number, body: string): string {
+  return body === "" ? `${prefix} HTTP ${status}` : `${prefix} HTTP ${status} — ${body}`;
+}
+
 export function createEodhdProvider(options: EodhdProviderOptions): MarketDataProvider {
   const fetchImpl = options.fetchImpl ?? fetch;
   const baseUrl = (options.baseUrl ?? "https://eodhd.com/api").replace(/\/$/, "");
@@ -235,7 +262,11 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
         headers: { Accept: "application/json" },
       });
       if (response.status === 401 || response.status === 403) {
-        throw new ProviderError("UNAUTHORIZED", EODHD_PROVIDER_ID, `EODHD HTTP ${response.status}`);
+        throw new ProviderError(
+          "UNAUTHORIZED",
+          EODHD_PROVIDER_ID,
+          httpMessage("EODHD", response.status, await errorBody(response)),
+        );
       }
       if (response.status === 429) {
         const retry = response.headers.get("retry-after");
@@ -250,7 +281,11 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
         throw new ProviderError("NOT_FOUND", EODHD_PROVIDER_ID, "Ressource EODHD introuvable");
       }
       if (!response.ok) {
-        throw new ProviderError("NETWORK", EODHD_PROVIDER_ID, `EODHD HTTP ${response.status}`);
+        throw new ProviderError(
+          "NETWORK",
+          EODHD_PROVIDER_ID,
+          httpMessage("EODHD", response.status, await errorBody(response)),
+        );
       }
       return await response.json();
     } catch (error) {

@@ -48,6 +48,33 @@ function decimal(value: unknown, field: string): DecimalString {
   return providerDecimal(value, COINGECKO_PROVIDER_ID, field);
 }
 
+/**
+ * Extrait un extrait du corps d'une réponse en erreur.
+ *
+ * Sans lui, un `403` ne laisse que son code — et un `403` d'une passerelle
+ * réseau à liste blanche devient indiscernable d'un `403` du fournisseur. Le
+ * rapport de couverture conclut alors « clé refusée » alors que la requête
+ * n'a jamais quitté la machine, et on cherche une clé pour un problème qui est
+ * ailleurs.
+ *
+ * Le corps est tronqué : il sert à diagnostiquer, pas à être journalisé en
+ * entier. Une lecture qui échoue rend une chaîne vide plutôt que de masquer
+ * l'erreur d'origine.
+ */
+async function errorBody(response: Response): Promise<string> {
+  try {
+    const text = await response.text();
+    return text.trim().slice(0, 300);
+  } catch {
+    return "";
+  }
+}
+
+/** Message d'erreur HTTP incluant l'extrait de corps quand il existe. */
+function httpMessage(prefix: string, status: number, body: string): string {
+  return body === "" ? `${prefix} HTTP ${status}` : `${prefix} HTTP ${status} — ${body}`;
+}
+
 export function createCoinGeckoProvider(options: CoinGeckoProviderOptions): MarketDataProvider {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? 8_000;
@@ -77,7 +104,7 @@ export function createCoinGeckoProvider(options: CoinGeckoProviderOptions): Mark
         throw new ProviderError(
           "UNAUTHORIZED",
           COINGECKO_PROVIDER_ID,
-          `CoinGecko HTTP ${response.status}`,
+          httpMessage("CoinGecko", response.status, await errorBody(response)),
         );
       }
       if (response.status === 429) {

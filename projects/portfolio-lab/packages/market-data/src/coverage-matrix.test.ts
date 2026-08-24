@@ -296,9 +296,13 @@ describe("runCoverageMatrix", () => {
     expect(simulated?.cells.find((c) => c.instrumentId === "aapl")?.outcome).toBe("RESOLVED");
     expect(simulated?.cells.find((c) => c.instrumentId === "msft")?.outcome).toBe("NOT_FOUND");
 
-    // Les fournisseurs réels ne sont pas instanciables : jamais interrogés.
-    // Les marquer NOT_FOUND transformerait une absence de test en conclusion.
-    for (const id of ["twelvedata", "massive", "eodhd", "openfigi"]) {
+    /*
+     * Un fournisseur sans adaptateur instanciable — Massive sans clé, OpenFIGI
+     * qui ne publie aucun prix — n'est jamais interrogé. Ses cellules valent
+     * `NOT_RUN` avec leur raison : les marquer `NOT_FOUND` transformerait une
+     * absence de test en conclusion sur la couverture.
+     */
+    for (const id of ["massive", "openfigi"]) {
       const provider = report.providers.find((p) => p.providerId === id);
       expect(
         provider?.cells.every((c) => c.outcome === "NOT_RUN"),
@@ -329,26 +333,46 @@ describe("runCoverageMatrix", () => {
 });
 
 describe("fournisseurs candidats", () => {
-  it("sont tous déclarés non vérifiés, avec leur motif de blocage", () => {
-    // Tant qu'aucun appel n'a été fait, aucun ne peut prétendre à mieux.
+  it("ne prétend jamais avoir été éprouvé en production", () => {
+    /*
+     * L'invariant qui compte. Quatre adaptateurs existent désormais et sont
+     * testés sur fixtures, mais **écrire un client HTTP ne prouve pas qu'il
+     * fonctionne** : tant qu'aucun appel réel n'a abouti, `PRODUCTION_TESTED`
+     * serait une affirmation sans preuve.
+     *
+     * Chacun garde un motif de blocage disant ce qui manque pour monter d'un
+     * cran.
+     */
     for (const candidate of CANDIDATE_PROVIDERS) {
-      expect(candidate.verification, candidate.id).toBe("UNVERIFIED");
+      expect(candidate.verification, candidate.id).not.toBe("PRODUCTION_TESTED");
+      expect(candidate.verification, candidate.id).not.toBe("SANDBOX_TESTED");
       expect(candidate.blockedBy, candidate.id).toBeTruthy();
     }
   });
 
-  it("ne s'instancient pas, même si une clé est présente dans l'environnement", () => {
-    // Ajouter une clé ne doit pas activer un adaptateur inexistant.
+  it("n'instancie que les fournisseurs dont l'adaptateur existe vraiment", () => {
+    /*
+     * Ajouter une clé ne doit pas activer un adaptateur inexistant. OpenFIGI
+     * en est l'exemple : c'est un service de normalisation d'identifiants, il
+     * ne publie aucun prix et n'a donc rien à instancier comme fournisseur de
+     * cours, quelle que soit la clé fournie.
+     */
+    const env = {
+      TWELVE_DATA_API_KEY: "clef",
+      MASSIVE_API_KEY: "clef",
+      EODHD_API_KEY: "clef",
+      OPENFIGI_API_KEY: "clef",
+    };
+    const implemented = new Set(["twelvedata", "massive", "eodhd", "coingecko"]);
+
     for (const candidate of CANDIDATE_PROVIDERS) {
-      expect(
-        candidate.create({
-          TWELVE_DATA_API_KEY: "clef",
-          MASSIVE_API_KEY: "clef",
-          EODHD_API_KEY: "clef",
-          OPENFIGI_API_KEY: "clef",
-        }),
-        candidate.id,
-      ).toBeNull();
+      const created = candidate.create(env);
+      if (implemented.has(candidate.id)) {
+        expect(created, candidate.id).not.toBeNull();
+        expect(created?.id, candidate.id).toBe(candidate.id);
+      } else {
+        expect(created, candidate.id).toBeNull();
+      }
     }
   });
 
@@ -414,10 +438,19 @@ describe("ProviderRegistry", () => {
   });
 
   it("n'expose que les fournisseurs réellement instanciables", () => {
+    /*
+     * Sans clé ni mode démo, seuls les fournisseurs à accès public sont
+     * disponibles. Massive n'expose aucun mode démo et OpenFIGI ne publie
+     * aucun prix : ni l'un ni l'autre ne doit apparaître.
+     */
     const registry = new ProviderRegistry();
     for (const candidate of CANDIDATE_PROVIDERS) {
       registry.register(candidate);
     }
-    expect(registry.available({})).toEqual([]);
+    const available = registry.available({}).map((provider) => provider.id);
+
+    expect(available).not.toContain("massive");
+    expect(available).not.toContain("openfigi");
+    expect(available).toContain("coingecko");
   });
 });
