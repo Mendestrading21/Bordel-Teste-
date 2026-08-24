@@ -16,6 +16,11 @@ import {
 } from "./eodhd-stream.js";
 import { providerDecimal } from "./provider-decimal.js";
 import {
+  decodeStreamMessage,
+  type StreamSocket,
+  type StreamSocketFactory,
+} from "./stream-socket.js";
+import {
   ProviderError,
   type FxQuote,
   type HistoryRequest,
@@ -32,26 +37,11 @@ import {
 
 export const EODHD_PROVIDER_ID = "eodhd";
 
+export type { StreamSocket, StreamSocketFactory } from "./stream-socket.js";
+
 export type EodhdMode = "demo" | "live";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
-
-/**
- * Socket minimal dont l'adaptateur a besoin.
- *
- * Volontairement plus étroit que `WebSocket` : le paquet `market-data` ne
- * dépend d'aucune implémentation, et les tests fournissent un faux socket sans
- * ouvrir de port. C'est ce qui permet de vérifier l'abonnement, le
- * désabonnement et le traitement des ticks dans la suite unitaire.
- */
-export type StreamSocket = {
-  send(data: string): void;
-  close(): void;
-  addEventListener(type: "message", listener: (event: { data: unknown }) => void): void;
-  addEventListener(type: "open" | "error" | "close", listener: () => void): void;
-};
-
-export type StreamSocketFactory = (url: string) => StreamSocket;
 
 export type EodhdProviderOptions = {
   readonly apiToken: string;
@@ -640,16 +630,7 @@ export function createEodhdProvider(options: EodhdProviderOptions): MarketDataPr
               });
 
               socket.addEventListener("message", (event: { data: unknown }) => {
-                const payload = ((): unknown => {
-                  if (typeof event.data !== "string") return event.data;
-                  try {
-                    return JSON.parse(event.data);
-                  } catch {
-                    // Un message non-JSON n'est pas une panne : EODHD envoie
-                    // des textes de statut. L'ignorer vaut mieux que rompre.
-                    return null;
-                  }
-                })();
+                const payload = decodeStreamMessage(event.data);
 
                 const symbol =
                   typeof payload === "object" && payload !== null && "s" in payload
