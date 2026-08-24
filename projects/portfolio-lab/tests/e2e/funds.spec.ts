@@ -30,7 +30,13 @@ test.describe("fonds de placement", () => {
 
   test("porte le badge « Dernière NAV » et jamais « En direct »", async ({ page }) => {
     await page.goto("/fonds");
-    await expect(page.getByText("Dernière NAV").first()).toBeVisible();
+    // Désigné par son attribut : voir la note du même contrôle dans
+    // `portfolio.spec.ts`.
+    const badge = page.locator('[data-pl-freshness="NAV"]').first();
+    await expect(badge).toBeVisible();
+    // `toContainText` et non `toHaveText` : le badge porte aussi la source et
+    // l'horodatage dans un texte réservé aux lecteurs d'écran.
+    await expect(badge).toContainText("Dernière NAV");
     const body = (await page.textContent("body")) ?? "";
     // Un fonds n'a pas de cours intraday.
     expect(body).not.toContain("En direct");

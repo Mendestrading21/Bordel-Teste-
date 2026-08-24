@@ -1,5 +1,7 @@
 import { sessionMessage, type SessionState } from "@/lib/auth/session";
 
+import { Notice } from "./notice";
+
 /**
  * Bandeau d'état de session.
  *
@@ -15,20 +17,17 @@ export function SessionNotice({
     return null;
   }
 
-  const tone =
+  const { tone, label, icon } =
     state.status === "unconfigured"
-      ? { border: "border-warning/40", text: "text-warning", label: "Configuration requise" }
+      ? { tone: "warning" as const, label: "Configuration requise", icon: "⚙️" }
       : state.status === "expired"
-        ? { border: "border-warning/40", text: "text-warning", label: "Session expirée" }
-        : { border: "border-subtle", text: "text-secondary", label: "Non connecté" };
+        ? { tone: "warning" as const, label: "Session expirée", icon: "⏱️" }
+        : { tone: "neutral" as const, label: "Non connecté", icon: "🔒" };
 
-  return (
-    <div
-      role="status"
-      className={`mb-6 rounded-token-md border ${tone.border} bg-surface px-4 py-3`}
-    >
-      <p className={`text-xs font-medium tracking-wide uppercase ${tone.text}`}>{tone.label}</p>
-      <p className="mt-1 text-sm text-secondary">{message}</p>
-    </div>
-  );
+  /*
+   * Le message est court et ne se replie pas : contrairement au bandeau de
+   * démonstration, il n'a pas d'explication longue à donner, et le replier
+   * ajouterait une interaction pour rien.
+   */
+  return <Notice role="status" tone={tone} icon={icon} label={label} summary={message} />;
 }

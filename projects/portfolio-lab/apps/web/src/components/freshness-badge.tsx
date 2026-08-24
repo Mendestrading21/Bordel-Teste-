@@ -37,8 +37,19 @@ export function FreshnessBadge({
     .filter((part): part is string => part !== null)
     .join(" — ");
 
+  /*
+   * Marqueur stable pour les vérifications automatisées.
+   *
+   * Les parcours E2E cherchaient le libellé « Manuel » n'importe où dans la
+   * page. Cela les rendait dépendants de la prose : toute phrase mentionnant un
+   * type de cours — l'explication du bandeau de démonstration, par exemple —
+   * pouvait devenir la première occurrence trouvée. L'attribut désigne le
+   * badge lui-même, quelle que soit la formulation retenue ailleurs.
+   */
+  const marker = { "data-pl-freshness": freshness } as React.HTMLAttributes<HTMLSpanElement>;
+
   return (
-    <Chip tone={TONE[freshness]} title={detail === "" ? undefined : detail}>
+    <Chip tone={TONE[freshness]} {...(detail === "" ? {} : { title: detail })} {...marker}>
       {QUOTE_FRESHNESS_LABEL[freshness]}
       {detail === "" ? null : <span className="sr-only"> — {detail}</span>}
     </Chip>
