@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 /**
  * Parcours complets sur un portefeuille peuplé.
@@ -484,16 +484,98 @@ test.describe("comptes", () => {
 });
 
 test.describe("ajout d'une position", () => {
-  test("le formulaire propose comptes et instruments", async ({ page }) => {
+  /** Amène le parcours à l'étape de saisie via la carte demandée. */
+  async function choisir(page: Page, label: string): Promise<void> {
     await page.goto("/ajouter");
-    await expect(page.getByLabel("Compte")).toBeVisible();
+    await page.getByRole("button", { name: new RegExp(label) }).click();
+  }
+
+  test("demande d'abord ce que l'on ajoute, pas les six champs à la fois", async ({ page }) => {
+    await page.goto("/ajouter");
+
+    /*
+     * Le premier écran ne pose qu'une question. Les six champs d'un bloc ne
+     * laissaient pas atteindre « Quantité » sur 390 px, alors que la réponse à
+     * « qu'est-ce que j'ajoute ? » écarte déjà presque tous les choix suivants.
+     */
+    await expect(page.getByRole("heading", { name: /Qu'ajoutez-vous/ })).toBeVisible();
+    await expect(page.getByLabel("Quantité")).toHaveCount(0);
+    await expect(page.getByLabel("Instrument")).toHaveCount(0);
+  });
+
+  test("le choix d'une classe n'expose que les instruments de cette classe", async ({ page }) => {
+    await choisir(page, "Fonds");
+
     await expect(page.getByLabel("Instrument")).toBeVisible();
-    await expect(page.getByLabel("Quantité")).toBeVisible();
-    await expect(page.getByLabel("Coût moyen unitaire")).toBeVisible();
+    const options = page.getByLabel("Instrument").locator("option:not([disabled])");
+    await expect(options).toHaveCount(1);
+    await expect(options.first()).toContainText("Démo Fonds Équilibré");
+  });
+
+  test("le champ masqué n'est pas seulement caché : il n'est pas soumis", async ({ page }) => {
+    /*
+     * Un champ rendu puis masqué en CSS partirait quand même au serveur, et
+     * l'étape n'aurait plus rien d'une étape. Le DOM doit être vide, pas
+     * invisible.
+     */
+    await page.goto("/ajouter");
+    await expect(page.locator("input[name='quantity']")).toHaveCount(0);
+    await expect(page.locator("select[name='instrumentId']")).toHaveCount(0);
+  });
+
+  test("on peut revenir en arrière et changer de classe", async ({ page }) => {
+    await choisir(page, "Action");
+    await expect(page.getByLabel("Instrument")).toBeVisible();
+
+    await page.getByRole("button", { name: "Changer" }).click();
+    await expect(page.getByRole("heading", { name: /Qu'ajoutez-vous/ })).toBeVisible();
+    await expect(page.getByLabel("Instrument")).toHaveCount(0);
+  });
+
+  test("une carte sans instrument enregistré est inerte et dit pourquoi", async ({ page }) => {
+    await page.goto("/ajouter");
+
+    // Le référentiel de démonstration ne contient ni obligation ni crypto :
+    // « Autre » doit donc être désactivé — et l'expliquer, plutôt que de rester
+    // grisé sans raison, ce qui se lit comme une panne.
+    const autre = page.getByRole("button", { name: /Autre/ });
+    await expect(autre).toBeDisabled();
+    await expect(autre).toContainText("Aucun enregistré");
+  });
+
+  test("les options passent par la sélection guidée, pas par la saisie libre", async ({ page }) => {
+    await page.goto("/ajouter");
+
+    // Un symbole d'option mal tapé désigne un autre contrat existant, pas une
+    // erreur : rien ne le signalerait.
+    const option = page.getByRole("link", { name: /Option/ });
+    await expect(option).toHaveAttribute("href", "/ajouter/option");
+  });
+
+  test("le bouton d'enregistrement reste atteignable sans faire défiler", async ({
+    page,
+  }, testInfo) => {
+    // Garde-fou pour le plus petit écran ciblé : c'est là que le formulaire
+    // déborde en premier, et un bouton hors de portée du pouce est la
+    // principale raison d'abandonner une saisie.
+    test.skip(testInfo.project.name !== "iphone-390", "Garde-fou propre au plus petit écran.");
+
+    await choisir(page, "Action");
+    const box = await page.getByRole("button", { name: "Enregistrer la position" }).boundingBox();
+    const viewport = page.viewportSize();
+    expect(box).not.toBeNull();
+    expect(viewport).not.toBeNull();
+
+    // La navigation basse recouvre le bas de l'écran : le bouton doit tenir
+    // au-dessus d'elle, pas seulement dans la fenêtre.
+    const navHeight = (await page.getByRole("navigation").boundingBox())?.height ?? 0;
+    expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(
+      (viewport?.height ?? 0) - navHeight,
+    );
   });
 
   test("les champs de montant ne sont pas de type number", async ({ page }) => {
-    await page.goto("/ajouter");
+    await choisir(page, "Action");
     // `type="number"` accepte la notation exponentielle et normalise selon la
     // locale du navigateur : deux comportements indésirables ici.
     await expect(page.getByLabel("Quantité")).toHaveAttribute("inputmode", "decimal");
@@ -501,7 +583,7 @@ test.describe("ajout d'une position", () => {
   });
 
   test("refuse une quantité nulle avec un message explicite", async ({ page }) => {
-    await page.goto("/ajouter");
+    await choisir(page, "Action");
     await page.getByLabel("Compte").selectOption({ index: 1 });
     await page.getByLabel("Instrument").selectOption({ index: 1 });
     await page.getByLabel("Quantité").fill("0");
