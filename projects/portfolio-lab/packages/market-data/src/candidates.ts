@@ -1,4 +1,5 @@
 import { createCoinGeckoProvider } from "./coingecko-provider.js";
+import { createFinnhubProvider } from "./finnhub-provider.js";
 import type { ProviderCapabilities } from "./contract.js";
 import { createEodhdProvider } from "./eodhd-provider.js";
 import { createMassiveProvider } from "./massive-provider.js";
@@ -167,6 +168,43 @@ export const CANDIDATE_PROVIDERS: readonly ProviderRegistration[] = [
       return createCoinGeckoProvider(
         apiKey === undefined ? { mode: "keyless" } : { mode: "demo", apiKey },
       );
+    },
+  },
+  {
+    id: "finnhub",
+    label: "Finnhub",
+    capabilities: UNMEASURED_CAPABILITIES({
+      /*
+       * Actions et ETF américains seulement. Le plan gratuit ne sert ni les
+       * fonds de placement, ni les options, ni les places suisses et
+       * européennes en temps réel : les déclarer enverrait le routeur chez un
+       * fournisseur qui échouerait à chaque appel.
+       */
+      assetTypes: ["STOCK", "ETF"],
+      searchByText: true,
+      history: false,
+      streaming: false,
+      bestFreshness: "DELAYED",
+    }),
+    verification: "FIXTURE_TESTED",
+    blockedBy: BLOCKED_BY_ACCESS,
+    apiKeyEnvVar: "FINNHUB_API_KEY",
+    documentationUrl: "https://finnhub.io/docs/api",
+    create: (env) => {
+      const apiKey = env["FINNHUB_API_KEY"];
+      if (apiKey === undefined || apiKey.trim() === "") return null;
+      /*
+       * Le plan vient de la configuration, jamais de la présence d'une clé :
+       * une clé gratuite et une clé payante se ressemblent trait pour trait,
+       * et en déduire « temps réel » afficherait « en direct » sur du différé.
+       */
+      const plan = env["FINNHUB_PLAN"] === "paid" ? "paid" : "free";
+      const declaredDelay = Number(env["FINNHUB_DELAY_MINUTES"]);
+      return createFinnhubProvider({
+        apiKey,
+        plan,
+        delayMinutes: Number.isFinite(declaredDelay) && declaredDelay > 0 ? declaredDelay : null,
+      });
     },
   },
   {

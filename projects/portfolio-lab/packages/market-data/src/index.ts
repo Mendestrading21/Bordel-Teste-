@@ -6,6 +6,7 @@ export * from "./provider-factory.js";
 export * from "./eodhd-provider.js";
 export * from "./twelve-data-provider.js";
 export * from "./coingecko-provider.js";
+export * from "./finnhub-provider.js";
 export * from "./openfigi-resolver.js";
 export * from "./mock-provider.js";
 export * from "./candidates.js";
