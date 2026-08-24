@@ -13,7 +13,7 @@ import { GatewayCore } from "./gateway.js";
 import { DEFAULT_STALE_THRESHOLDS, QuoteCache } from "./quote-cache.js";
 import { extractToken, createLiveChannel } from "./ws-server.js";
 import type { ServerMessage } from "./protocol.js";
-import { SubscriptionRegistry } from "./subscriptions.js";
+import { SubscriptionRegistry, DEFAULT_SUBSCRIPTION_LIMITS } from "./subscriptions.js";
 
 /**
  * Canal temps réel de bout en bout, sur de vraies sockets.
@@ -78,7 +78,11 @@ describe("canal temps réel", () => {
 
     const now = (): number => clock;
     const provider = createMockProvider({ instruments: INSTRUMENTS, now: () => new Date(clock) });
-    const subscriptions = new SubscriptionRegistry({ graceMs: 30_000, now });
+    const subscriptions = new SubscriptionRegistry({
+      graceMs: 30_000,
+      now,
+      ...DEFAULT_SUBSCRIPTION_LIMITS,
+    });
     const cache = new QuoteCache({ staleAfterMs: DEFAULT_STALE_THRESHOLDS, now });
 
     let deliver: ((clientId: string, message: ServerMessage) => void) | null = null;

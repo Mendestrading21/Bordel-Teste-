@@ -10,7 +10,7 @@ import { createLogger, type Logger } from "./logger.js";
 import { CircuitBreaker, DEFAULT_BACKOFF } from "./live/backoff.js";
 import { GatewayCore } from "./live/gateway.js";
 import { DEFAULT_STALE_THRESHOLDS, QuoteCache } from "./live/quote-cache.js";
-import { SubscriptionRegistry } from "./live/subscriptions.js";
+import { SubscriptionRegistry, DEFAULT_SUBSCRIPTION_LIMITS } from "./live/subscriptions.js";
 import type { ServerMessage } from "./live/protocol.js";
 import { createLiveChannel } from "./live/ws-server.js";
 import { createGatewayServer } from "./server.js";
@@ -53,7 +53,11 @@ function main(): void {
   const provider = createProvider(config, logger);
 
   const now = (): number => Date.now();
-  const subscriptions = new SubscriptionRegistry({ graceMs: 30_000, now });
+  const subscriptions = new SubscriptionRegistry({
+    graceMs: 30_000,
+    now,
+    ...DEFAULT_SUBSCRIPTION_LIMITS,
+  });
   const cache = new QuoteCache({ staleAfterMs: DEFAULT_STALE_THRESHOLDS, now });
 
   let channelClientCount = (): number => 0;

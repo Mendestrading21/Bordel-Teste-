@@ -7,7 +7,7 @@ import { CircuitBreaker, DEFAULT_BACKOFF } from "./backoff.js";
 import { GatewayCore } from "./gateway.js";
 import type { ServerMessage } from "./protocol.js";
 import { DEFAULT_STALE_THRESHOLDS, QuoteCache } from "./quote-cache.js";
-import { SubscriptionRegistry } from "./subscriptions.js";
+import { SubscriptionRegistry, DEFAULT_SUBSCRIPTION_LIMITS } from "./subscriptions.js";
 
 const BASE_TIME = Date.parse("2026-06-15T14:00:00.000Z");
 
@@ -37,7 +37,11 @@ describe("GatewayCore", () => {
   beforeEach(() => {
     clock = BASE_TIME;
     sent = [];
-    subscriptions = new SubscriptionRegistry({ graceMs: 30_000, now: () => clock });
+    subscriptions = new SubscriptionRegistry({
+      graceMs: 30_000,
+      now: () => clock,
+      ...DEFAULT_SUBSCRIPTION_LIMITS,
+    });
     cache = new QuoteCache({ staleAfterMs: DEFAULT_STALE_THRESHOLDS, now: () => clock });
     core = new GatewayCore({
       provider: createMockProvider({ instruments: [] }),

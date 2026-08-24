@@ -15,6 +15,7 @@ import {
   parseClientMessage,
   type ServerMessage,
 } from "./protocol.js";
+import { SubscriptionLimitError } from "./subscriptions.js";
 
 /**
  * Canal WebSocket authentifié.
@@ -154,7 +155,32 @@ export function createLiveChannel(options: WsServerOptions): {
           return;
         }
 
-        const toSubscribe = options.core.onClientSubscribe(client.id, message.symbols);
+        /*
+         * Un dépassement de plafond est **annoncé au client**, jamais absorbé.
+         * Tronquer sa liste le laisserait convaincu d'être abonné à tout, avec
+         * une moitié définitivement muette — indiscernable d'un marché sans
+         * transaction.
+         */
+        let toSubscribe: readonly string[];
+        try {
+          toSubscribe = options.core.onClientSubscribe(client.id, message.symbols);
+        } catch (error: unknown) {
+          if (error instanceof SubscriptionLimitError) {
+            options.logger.warn("abonnement refusé", {
+              limit: error.limit,
+              requested: error.requested,
+              maximum: error.maximum,
+            });
+            send(client.id, {
+              type: "error",
+              code: "SUBSCRIPTION_LIMIT",
+              message: error.message,
+            });
+            return;
+          }
+          throw error;
+        }
+
         if (toSubscribe.length > 0) {
           void subscribeUpstream(toSubscribe);
         }
