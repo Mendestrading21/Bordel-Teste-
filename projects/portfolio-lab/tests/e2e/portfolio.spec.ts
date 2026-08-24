@@ -314,11 +314,58 @@ test.describe("détail d'une position", () => {
 });
 
 test.describe("analyse", () => {
+  /**
+   * Ouvre la section avancée.
+   *
+   * Exposition options, réconciliation et enregistrement d'un point sont des
+   * outils de vérification, pas des questions quotidiennes : ils sont repliés
+   * par défaut. Le parcours les déplie comme le ferait un utilisateur, mais
+   * exige qu'ils restent atteignables sans quitter l'écran.
+   */
+  async function ouvrirDetails(page: Page): Promise<void> {
+    await page.getByText("Détails avancés").click();
+  }
+
   test("répartit l'exposition par classe, compte et devise", async ({ page }) => {
     await page.goto("/analyse");
-    for (const title of ["Par classe d'actifs", "Par compte", "Par devise de cotation"]) {
+    for (const title of [
+      "Répartition par classe d'actifs",
+      "Par compte",
+      "Par devise de cotation",
+    ]) {
       await expect(page.getByRole("heading", { name: title })).toBeVisible();
     }
+  });
+
+  test("propose de choisir la fenêtre de lecture de la courbe", async ({ page }) => {
+    await page.goto("/analyse");
+
+    /*
+     * Le seed couvre le 4 au 8 mai puis aujourd'hui : plusieurs fenêtres
+     * contiennent donc des courbes réellement différentes, et le sélecteur
+     * doit les proposer. Une fenêtre n'est jamais offerte si elle ne contient
+     * pas deux points enregistrés — rien n'est interpolé.
+     */
+    const group = page.getByRole("group", { name: "Période affichée" });
+    await expect(group).toBeVisible();
+
+    const boutons = group.getByRole("button");
+    expect(await boutons.count()).toBeGreaterThanOrEqual(2);
+    await expect(boutons.last()).toHaveText("Tout");
+  });
+
+  test("changer de fenêtre change réellement la courbe affichée", async ({ page }) => {
+    await page.goto("/analyse");
+    const chart = page.getByRole("img", { name: /Patrimoine du .* au .*/ });
+    const avant = await chart.getAttribute("aria-label");
+
+    const boutons = page.getByRole("group", { name: "Période affichée" }).getByRole("button");
+    await boutons.last().click();
+
+    // Un sélecteur qui ne change rien est pire qu'aucun sélecteur : il laisse
+    // croire qu'on regarde une autre période.
+    await expect(chart).not.toHaveAttribute("aria-label", avant ?? "");
+    await expect(boutons.last()).toHaveAttribute("aria-pressed", "true");
   });
 
   test("double chaque barre d'une valeur chiffrée", async ({ page }) => {
@@ -330,7 +377,7 @@ test.describe("analyse", () => {
 
   test("trace la courbe du patrimoine et la double d'un tableau de valeurs", async ({ page }) => {
     await page.goto("/analyse");
-    await expect(page.getByRole("heading", { name: "Évolution du patrimoine" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Évolution" })).toBeVisible();
 
     // La courbe porte un résumé textuel : elle est annoncée, pas seulement vue.
     const chart = page.getByRole("img", { name: /Patrimoine du .* au .*/ });
@@ -347,17 +394,28 @@ test.describe("analyse", () => {
     await expect(page.getByRole("table", { name: /Valeur du patrimoine/ })).toBeVisible();
   });
 
-  test("réduit les deux points du 6 mai à une seule journée", async ({ page }) => {
+  test("ne montre jamais deux fois la même journée", async ({ page }) => {
     await page.goto("/analyse");
+
+    // La fenêtre la plus large : c'est là que toutes les journées sont
+    // présentes, y compris celle qui porte deux snapshots.
+    const boutons = page.getByRole("group", { name: "Période affichée" }).getByRole("button");
+    if ((await boutons.count()) > 0) await boutons.last().click();
+
     await page.getByText(/Valeurs chiffrées/).click();
 
-    // Le seed porte six snapshots dont deux le 6 mai : cette journée ne doit
-    // apparaître qu'une fois. Le nombre total de lignes n'est pas figé — le
-    // parcours d'enregistrement ci-dessous ajoute légitimement des points.
-    await expect(page.getByRole("rowheader", { name: "2026-05-06" })).toHaveCount(1);
-    for (const day of ["2026-05-04", "2026-05-05", "2026-05-07", "2026-05-08"]) {
-      await expect(page.getByRole("rowheader", { name: day })).toHaveCount(1);
-    }
+    /*
+     * Le seed porte une journée avec DEUX snapshots — un après publication des
+     * données, un après une modification manuelle. L'historique quotidien doit
+     * retenir le second et n'afficher la journée qu'une fois.
+     *
+     * L'assertion ne cite aucune date : les dates du seed sont relatives à son
+     * installation, précisément pour que l'historique de démonstration ne sorte
+     * pas des fenêtres de lecture en vieillissant.
+     */
+    const jours = await page.getByRole("rowheader").allInnerTexts();
+    expect(jours.length).toBeGreaterThan(1);
+    expect(new Set(jours).size).toBe(jours.length);
   });
 
   test("affiche la contribution de chaque position au P&L", async ({ page }) => {
@@ -367,6 +425,7 @@ test.describe("analyse", () => {
 
   test("distingue valeur de marché et notionnel des options", async ({ page }) => {
     await page.goto("/analyse");
+    await ouvrirDetails(page);
     await expect(page.getByRole("heading", { name: "Exposition options" })).toBeVisible();
 
     const table = page.getByRole("table", { name: /exposition notionnelle/ });
@@ -391,6 +450,7 @@ test.describe("analyse", () => {
 
   test("annonce que les agrégats se réconcilient avec les positions", async ({ page }) => {
     await page.goto("/analyse");
+    await ouvrirDetails(page);
     const panel = page.locator("section").filter({ hasText: "Réconciliation" });
     await expect(panel.getByText(/correspond exactement/)).toBeVisible();
     // Aucun écart : le panneau d'alerte ne doit pas apparaître.
@@ -399,6 +459,7 @@ test.describe("analyse", () => {
 
   test("enregistre un point d'historique sur demande explicite", async ({ page }) => {
     await page.goto("/analyse");
+    await ouvrirDetails(page);
 
     const button = page.getByRole("button", { name: /Enregistrer un point d'historique/ });
     await expect(button).toBeVisible();
