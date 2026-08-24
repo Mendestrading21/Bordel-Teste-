@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-
 import type { AssetType } from "@portfolio-lab/domain";
 
-import { AddPositionForm } from "@/components/add-position-form";
+import { AccountsHint, AddPositionFlow } from "@/components/add-position-flow";
 import { DemoBanner } from "@/components/demo-banner";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -19,7 +17,7 @@ export default async function AjouterPage(): Promise<React.JSX.Element> {
     <>
       <PageHeader
         title="Ajouter un placement"
-        subtitle="Saisie manuelle : quantité, coût moyen, devise et compte."
+        subtitle="Saisie manuelle. Aucune connexion bancaire, aucun import automatique."
       />
       <DemoBanner mode={view.mode} />
     </>
@@ -60,32 +58,16 @@ export default async function AjouterPage(): Promise<React.JSX.Element> {
     <>
       {header}
 
-      <section className="mb-4 rounded-token-md border border-subtle bg-surface px-5 py-4">
-        <h2 className="text-sm font-medium text-primary">Vous ajoutez une option ?</h2>
-        <p className="mt-1 mb-3 text-xs leading-relaxed text-secondary">
-          Un contrat se choisit par étapes — sous-jacent, sens, échéance, strike — plutôt que par
-          saisie d&apos;un symbole. Un symbole mal tapé désigne un autre contrat existant, pas une
-          erreur.
-        </p>
-        <Link
-          href="/ajouter/option"
-          className="inline-flex min-h-[var(--pl-touch-target)] items-center text-sm text-accent hover:underline"
-        >
-          Sélection guidée d&apos;une option →
-        </Link>
-      </section>
-
-      <section className="rounded-token-lg border border-subtle bg-surface px-5 py-5">
-        <AddPositionForm
-          accounts={view.accounts.map((account) => ({ id: account.id, name: account.name }))}
-          instruments={instruments.map((instrument) => ({
-            id: instrument.id,
-            name: instrument.name,
-            assetType: instrument.assetType as AssetType,
-            currency: instrument.currency,
-          }))}
-        />
-      </section>
+      <AddPositionFlow
+        accounts={view.accounts.map((account) => ({ id: account.id, name: account.name }))}
+        instruments={instruments.map((instrument) => ({
+          id: instrument.id,
+          name: instrument.name,
+          assetType: instrument.assetType as AssetType,
+          currency: instrument.currency,
+        }))}
+      />
+      <AccountsHint />
     </>
   );
 }

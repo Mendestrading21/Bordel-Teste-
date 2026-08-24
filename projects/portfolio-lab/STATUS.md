@@ -4,7 +4,7 @@ Dernière mise à jour : 24 août 2026
 
 ## Phase
 
-**Design V2 — DS-04 : positions et fiche détaillée**
+**Design V2 — DS-05 : parcours d'ajout simplifié**
 
 ## État global
 
@@ -57,11 +57,43 @@ intouchables ».
 | DS-02 | Shell, en-tête, navigation mobile   | terminé |
 | DS-03 | Accueil et patrimoine               | terminé |
 | DS-04 | Positions et fiche détaillée        | terminé |
-| DS-05 | Parcours d'ajout simplifié          | à faire |
+| DS-05 | Parcours d'ajout simplifié          | terminé |
 | DS-06 | Analyse et graphiques               | à faire |
 | DS-07 | Fonds et options                    | à faire |
 | DS-08 | Réglages, comptes, données et états | à faire |
 | DS-09 | Polish, motion, accessibilité, PWA  | à faire |
+
+### DS-05 — livrables vérifiés
+
+- **une question d'abord, les champs ensuite.** Le formulaire posait six
+  questions d'un bloc, dont deux listes déroulantes et trois paragraphes
+  d'explication : sur 390 px on atteignait à peine « Quantité ». Le premier
+  écran demande maintenant « Qu'ajoutez-vous ? » et propose six cartes
+  compactes — Action, ETF, Fonds, Option, Cash, Autre — qui tiennent entièrement
+  dans le premier écran, explication comprise ;
+- **la liste d'instruments est réduite à la classe choisie.** Choisir « Fonds »
+  ne laisse que le fonds : la deuxième liste déroulante cesse d'être un
+  catalogue à parcourir ;
+- **les champs masqués ne sont pas montés**, pas seulement cachés. Un champ
+  rendu puis masqué en CSS partirait quand même au serveur, et l'étape
+  n'aurait plus rien d'une étape. Un parcours E2E interroge le DOM plutôt que
+  la visibilité ;
+- **une carte sans instrument enregistré est inerte et dit pourquoi.** « Aucun
+  enregistré » est une explication ; une carte grisée muette se lit comme une
+  panne ;
+- **les options gardent leur sélection guidée** : un symbole d'option mal tapé
+  désigne un autre contrat existant, pas une erreur, et rien ne le
+  signalerait ;
+- **le bouton d'enregistrement redevient atteignable sans faire défiler** sur
+  390 px, navigation basse comprise. Quantité et coût passent sur deux colonnes
+  dès le mobile — deux nombres courts empilés coûtaient quatre-vingts pixels —
+  et les notes, optionnelles, sont repliées. Un parcours E2E compare la
+  position du bouton à la hauteur utile ; vérifié par mutation, il échoue bien
+  dès qu'on rétablit l'empilement.
+
+Le parcours reste **un seul `<form>` et une seule soumission** : aucune action
+serveur, aucune validation et aucun nom de champ ne changent. Le composant
+`add-position-form.tsx` est remplacé par `add-position-flow.tsx`.
 
 ### DS-04 — livrables vérifiés
 
