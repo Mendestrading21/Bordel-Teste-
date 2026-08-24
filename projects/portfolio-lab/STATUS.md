@@ -4,7 +4,7 @@ Dernière mise à jour : 24 août 2026
 
 ## Phase
 
-**Design V2 — DS-06 : analyse et graphiques**
+**Design V2 — DS-07 : fonds et options**
 
 ## État global
 
@@ -59,9 +59,35 @@ intouchables ».
 | DS-04 | Positions et fiche détaillée        | terminé |
 | DS-05 | Parcours d'ajout simplifié          | terminé |
 | DS-06 | Analyse et graphiques               | terminé |
-| DS-07 | Fonds et options                    | à faire |
+| DS-07 | Fonds et options                    | terminé |
 | DS-08 | Réglages, comptes, données et états | à faire |
 | DS-09 | Polish, motion, accessibilité, PWA  | à faire |
+
+### DS-07 — livrables vérifiés
+
+- **l'écran Fonds montre enfin ce qui est détenu.** Il affichait la valeur nette
+  d'inventaire et pas les parts détenues : il ne répondait qu'à la moitié de la
+  question, la NAV étant une donnée de marché quand ce que l'on possède est la
+  raison d'ouvrir cet écran. NAV et position sont désormais côte à côte, toutes
+  deux en taille dominante, avec le compte de rattachement ;
+- **la date de valeur accompagne la NAV** au lieu d'occuper une ligne de
+  tableau : une NAV sans sa date ne dit pas ce qu'elle vaut ;
+- **les caractéristiques du fonds sont repliées** — classe de parts, devise,
+  fréquence, revenus, domiciliation, profondeur d'historique. Elles servent à
+  vérifier qu'on regarde la bonne classe de parts, question décisive mais posée
+  une fois ; dépliées, elles reléguaient la NAV en haut d'une liste de huit
+  lignes. Un parcours E2E vérifie qu'elles restent atteignables ;
+- **la méthode de valorisation accompagne chaque exposition options.** Un
+  notionnel de plusieurs dizaines de milliers de francs n'a pas le même poids
+  selon qu'il repose sur un point milieu de marché ou sur une saisie manuelle,
+  et le chiffre seul ne le disait pas. Plusieurs méthodes sont listées quand les
+  contrats d'un même sous-jacent n'ont pas été valorisés de la même façon : le
+  cas mérite d'être vu, pas moyenné ;
+- les méthodes sont **dérivées dans la couche de lecture**, à partir des seules
+  positions retenues par `prepareOptionExposure`. Le moteur de calcul n'est pas
+  modifié, et les contrats écartés — déjà comptés à part — ne font mentionner
+  aucune méthode n'ayant contribué à un chiffre affiché ;
+- primitives `Card` et `Stat` appliquées aux deux écrans.
 
 ### DS-06 — livrables vérifiés
 

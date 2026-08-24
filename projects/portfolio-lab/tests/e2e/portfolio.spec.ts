@@ -448,6 +448,19 @@ test.describe("analyse", () => {
     expect(hidden).toBeLessThanOrEqual(0);
   });
 
+  test("dit comment chaque exposition option a été valorisée", async ({ page }) => {
+    await page.goto("/analyse");
+    await ouvrirDetails(page);
+
+    /*
+     * Un notionnel de plusieurs dizaines de milliers de francs n'a pas le même
+     * poids selon qu'il repose sur un point milieu de marché ou sur une saisie
+     * manuelle. Le chiffre seul ne le dit pas.
+     */
+    const table = page.getByRole("table", { name: /exposition notionnelle/ });
+    await expect(table.getByRole("row").nth(1)).toContainText(/Saisie manuelle|Milieu|Dernier/);
+  });
+
   test("annonce que les agrégats se réconcilient avec les positions", async ({ page }) => {
     await page.goto("/analyse");
     await ouvrirDetails(page);
