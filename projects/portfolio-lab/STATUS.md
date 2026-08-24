@@ -4,7 +4,7 @@ Dernière mise à jour : 24 août 2026
 
 ## Phase
 
-**Design V2 — DS-07 : fonds et options**
+**Design V2 — DS-08 : réglages, comptes, données et états**
 
 ## État global
 
@@ -60,8 +60,39 @@ intouchables ».
 | DS-05 | Parcours d'ajout simplifié          | terminé |
 | DS-06 | Analyse et graphiques               | terminé |
 | DS-07 | Fonds et options                    | terminé |
-| DS-08 | Réglages, comptes, données et états | à faire |
+| DS-08 | Réglages, comptes, données et états | terminé |
 | DS-09 | Polish, motion, accessibilité, PWA  | à faire |
+
+### DS-08 — livrables vérifiés
+
+- **sept sections nommées** au lieu d'un seul défilement de trois mille pixels :
+  👤 profil et accès, 🏷️ comptes, 🔄 données de marché, 💱 devise, 📦 sauvegarde,
+  🛡️ confidentialité, ℹ️ à propos. L'émoji est un marqueur sémantique masqué aux
+  lecteurs d'écran — il sert à retrouver une section d'un coup d'œil dans une
+  page qui en compte sept, là où sept titres gris se confondaient ;
+- **zone irréversible isolée en bas**, séparée du reste et annoncée. Une action
+  définitive ne doit pas se trouver à un pouce d'un réglage anodin ; un parcours
+  E2E vérifie qu'elle vient bien après toutes les autres sections ;
+- **le bouton de suppression définitive n'est plus peint comme un bouton de
+  confirmation.** Il invitait au clic exactement là où il faut hésiter — et ici
+  l'action est irréversible ;
+- **le motif partagé par quatre fournisseurs est énoncé une fois.** Quatre
+  adaptateurs répétaient mot pour mot le même paragraphe de cinq lignes ;
+  répété, il cessait d'être lu, et la seule ligne qui diffère — celle
+  d'OpenFIGI, qui ne fournit jamais de prix — se noyait au milieu. Le motif
+  propre à un fournisseur reste affiché sous lui ;
+- **le formulaire de création de compte est replié** : il sert trois ou quatre
+  fois dans la vie de l'application, quand la liste au-dessus se consulte à
+  chaque passage ;
+- **section « À propos »** : version du moteur de calcul, fournisseurs déclarés
+  et fournisseurs réellement interrogeables. Un instantané n'est comparable
+  qu'à un autre produit par la même version du moteur.
+
+Défaut trouvé pendant le lot : **le parcours E2E de création de compte laissait
+un compte derrière lui à chaque exécution.** La liste de démonstration
+grossissait sans fin — huit comptes de test s'y étaient accumulés — au point de
+repousser le reste de l'écran hors de la première vue et de fausser les captures
+de revue visuelle. Le parcours archive désormais le compte qu'il a créé.
 
 ### DS-07 — livrables vérifiés
 

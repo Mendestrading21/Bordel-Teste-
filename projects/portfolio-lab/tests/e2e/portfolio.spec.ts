@@ -527,6 +527,54 @@ test.describe("comptes", () => {
     }
   });
 
+  test("les réglages sont découpés en sections nommées", async ({ page }) => {
+    await page.goto("/reglages");
+
+    // Sept sections plutôt qu'un seul long défilement : chacune répond à une
+    // question, et l'émoji sert à la retrouver d'un coup d'œil.
+    for (const title of [
+      /Profil et accès/,
+      /Comptes/,
+      /Données de marché/,
+      /Devise/,
+      /Sauvegarde/,
+      /Confidentialité/,
+      /À propos/,
+    ]) {
+      await expect(page.getByRole("heading", { name: title }).first()).toBeVisible();
+    }
+  });
+
+  test("isole l'action irréversible en bas de page", async ({ page }) => {
+    await page.goto("/reglages");
+
+    const danger = page.getByRole("heading", { name: /Zone irréversible/ });
+    await expect(danger).toBeVisible();
+
+    /*
+     * Une action définitive ne doit pas se trouver à un pouce d'un réglage
+     * anodin : elle vient après tout le reste, jamais au milieu.
+     */
+    const dangerTop = (await danger.boundingBox())?.y ?? 0;
+    const sauvegarde =
+      (await page.getByRole("heading", { name: /Sauvegarde/ }).boundingBox())?.y ?? 0;
+    expect(dangerTop).toBeGreaterThan(sauvegarde);
+  });
+
+  test("n'explique qu'une fois le motif partagé par plusieurs fournisseurs", async ({ page }) => {
+    await page.goto("/reglages");
+
+    /*
+     * Quatre adaptateurs partagent mot pour mot le même motif de blocage.
+     * Répété quatre fois, un paragraphe de cinq lignes cesse d'être lu — et la
+     * seule ligne qui diffère se noie au milieu.
+     */
+    await expect(page.getByText(/Reste à prouver par un appel réel/)).toHaveCount(1);
+
+    // Le motif propre à OpenFIGI, lui, reste affiché sous son fournisseur.
+    await expect(page.getByText(/ne fournit aucun prix/)).toBeVisible();
+  });
+
   test("le formulaire de compte ne demande aucun identifiant bancaire", async ({ page }) => {
     await page.goto("/reglages");
     const form = page.locator("form").filter({ hasText: "Créer le compte" });
@@ -549,11 +597,26 @@ test.describe("comptes", () => {
 
   test("crée un compte puis le retrouve dans la liste", async ({ page }) => {
     await page.goto("/reglages");
+    // Le formulaire de création est replié : il sert une fois par compte,
+    // quand la liste au-dessus se consulte à chaque passage.
+    await page.getByText("Nouveau compte").click();
     const unique = `Compte test ${Date.now()}`;
     await page.getByLabel("Nom du compte").fill(unique);
     await page.getByRole("button", { name: "Créer le compte" }).click();
     await expect(page.getByRole("status")).toContainText("créé");
     await expect(page.getByText(unique, { exact: true })).toBeVisible();
+
+    /*
+     * Le compte créé est archivé aussitôt.
+     *
+     * Sans cela chaque exécution en laissait un derrière elle, et la liste des
+     * comptes de démonstration grossissait sans fin — au point de repousser le
+     * reste de l'écran hors de la première vue et de fausser les captures de
+     * revue visuelle.
+     */
+    const ligne = page.getByRole("listitem").filter({ hasText: unique });
+    await ligne.getByRole("button", { name: /Archiver/ }).click();
+    await expect(page.getByText(unique, { exact: true })).toHaveCount(0);
   });
 });
 
@@ -686,7 +749,7 @@ test.describe("ajout d'une position", () => {
 test.describe("état des fournisseurs de données", () => {
   test("liste les fournisseurs, y compris ceux jamais appelés", async ({ page }) => {
     await page.goto("/reglages");
-    await expect(page.getByRole("heading", { name: "Fournisseurs de données" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Données de marché/ })).toBeVisible();
     for (const label of ["Twelve Data", "Massive", "EODHD", "CoinGecko", "OpenFIGI"]) {
       await expect(page.getByText(label, { exact: true })).toBeVisible();
     }

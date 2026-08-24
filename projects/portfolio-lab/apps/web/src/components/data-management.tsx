@@ -21,7 +21,10 @@ const INITIAL: ActionResult = { status: "idle" };
 export function ExportSection(): React.JSX.Element {
   return (
     <Card as="section" padding="lg" className="mt-4">
-      <h2 className="mb-1 text-base font-medium text-primary">Sauvegarde</h2>
+      <h2 className="mb-1 flex items-center gap-2 text-base font-medium text-primary">
+        <span aria-hidden="true">📦</span>
+        Sauvegarde
+      </h2>
       <p className="mb-3 text-sm leading-relaxed text-secondary">
         Le fichier contient vos comptes, vos positions et votre historique patrimonial. Les cours
         n&apos;y figurent pas : ce sont des données de marché, différentes au prochain chargement,
@@ -89,8 +92,15 @@ export function DeletionSection(): React.JSX.Element {
         />
         <FieldError result={result} field="confirmation" />
 
+        {/*
+         * Variante destructrice : peint comme le bouton de confirmation, le
+         * bouton d'effacement invitait au clic exactement là où il faut
+         * hésiter — et ici l'action est irréversible.
+         */}
         <fieldset disabled={!armed} className="disabled:opacity-50">
-          <SubmitButton>Supprimer définitivement</SubmitButton>
+          <SubmitButton variant="danger" pendingLabel="Suppression…">
+            Supprimer définitivement
+          </SubmitButton>
         </fieldset>
         <FormMessage result={result} />
       </form>
