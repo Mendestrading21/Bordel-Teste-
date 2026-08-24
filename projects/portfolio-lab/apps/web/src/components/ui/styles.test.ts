@@ -123,7 +123,7 @@ describe("échelle des chiffres", () => {
   });
 
   it("décroît de hero à sm", () => {
-    expect(STAT_VALUE_SIZE.hero).toContain("2.125rem");
+    expect(STAT_VALUE_SIZE.hero).toContain("2.5rem");
     expect(STAT_VALUE_SIZE.lg).toContain("text-2xl");
     expect(STAT_VALUE_SIZE.md).toContain("text-lg");
     expect(STAT_VALUE_SIZE.sm).toContain("text-sm");

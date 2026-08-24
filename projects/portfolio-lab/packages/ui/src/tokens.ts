@@ -67,10 +67,23 @@ export const spacingTokens = {
   "3xl": 48,
 } as const;
 
+/**
+ * Rayons, par **rôle** et non par taille abstraite.
+ *
+ * Les valeurs suivent les plages du système de design V2 : un contrôle est plus
+ * arrondi qu'un petit badge, une carte plus qu'un contrôle, et le bloc dominant
+ * de l'accueil plus que tout le reste. `radius.test.ts` rejoue ces plages.
+ */
 export const radiusTokens = {
-  sm: 6,
-  md: 10,
-  lg: 16,
+  /** Petits éléments posés dans un bloc : messages, encarts secondaires. */
+  sm: 10,
+  /** Contrôles : boutons, champs de saisie, onglets. */
+  md: 16,
+  /** Cartes et sections. */
+  lg: 20,
+  /** Bloc dominant d'un écran — le patrimoine total sur l'accueil. */
+  xl: 26,
+  /** Pastilles et puces. */
   pill: 999,
 } as const;
 

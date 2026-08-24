@@ -78,6 +78,11 @@ intouchables ».
   avec tables de classes testées : cible tactile de 44 px garantie à toutes
   les tailles de bouton, aplat d'accent réservé à la variante primaire, ton
   défini pour chaque état ;
+- **échelle de rayons alignée sur le système de design** : les cartes passent de
+  16 à 20 px, les contrôles de 10 à 16 px, les pastilles deviennent des puces
+  pleinement arrondies, et un rayon `xl` est ajouté pour le bloc dominant de
+  l'accueil. `radius.test.ts` recopie les plages du système et refuse une
+  dérive ;
 - **script de captures** `scripts/design-shots.mjs`, qui produit les paires
   AVANT / APRÈS de chaque lot sur 390×844, 430×932 et desktop.
 

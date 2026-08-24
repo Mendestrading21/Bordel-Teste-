@@ -50,7 +50,7 @@ export type Tone = "neutral" | "positive" | "negative" | "warning" | "stale" | "
  * écran, sans quoi plus rien ne domine.
  */
 export const STAT_VALUE_SIZE: Readonly<Record<StatSize, string>> = {
-  hero: "text-[2.125rem] leading-none font-semibold tracking-tight",
+  hero: "text-[2.5rem] leading-none font-semibold tracking-tight",
   lg: "text-2xl leading-tight font-semibold tracking-tight",
   md: "text-lg leading-tight font-semibold",
   sm: "text-sm leading-tight font-medium",
@@ -91,7 +91,7 @@ export const CHIP_TONE: Readonly<Record<Tone, string>> = {
 };
 
 export const CHIP_BASE =
-  "inline-flex items-center gap-1 rounded-token-sm border px-2 py-0.5 text-[11px] font-medium";
+  "inline-flex items-center gap-1 rounded-token-pill border px-2.5 py-0.5 text-[11px] font-medium";
 
 /* ---------------------------------------------------------------- Button */
 

@@ -39,6 +39,7 @@
   --radius-token-sm: var(--pl-radius-sm);
   --radius-token-md: var(--pl-radius-md);
   --radius-token-lg: var(--pl-radius-lg);
+  --radius-token-xl: var(--pl-radius-xl);
 }
 
 @layer base {
