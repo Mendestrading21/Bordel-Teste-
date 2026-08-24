@@ -6,7 +6,18 @@ import {
   type DecimalString,
 } from "@portfolio-lab/domain";
 
+import {
+  decodeStreamMessage,
+  type StreamSocket,
+  type StreamSocketFactory,
+} from "./stream-socket.js";
 import { providerDecimal } from "./provider-decimal.js";
+import {
+  parseTwelveDataTick,
+  twelveDataHeartbeat,
+  twelveDataStreamUrl,
+  twelveDataSubscription,
+} from "./twelve-data-stream.js";
 import {
   ProviderError,
   type FxQuote,
@@ -19,6 +30,7 @@ import {
   type PriceBar,
   type ProviderCapabilities,
   type ResolvedInstrument,
+  type SubscriptionHandle,
 } from "./contract.js";
 
 export const TWELVE_DATA_PROVIDER_ID = "twelvedata";
@@ -35,6 +47,17 @@ export type TwelveDataProviderOptions = {
   /** Niveau réellement souscrit. Ne jamais annoncer LIVE juste parce qu'une clé existe. */
   readonly freshness?: "LIVE" | "DELAYED";
   readonly delayMinutes?: number | null;
+  /**
+   * Fabrique de socket temps réel, fournie par l'application.
+   *
+   * Absente, l'adaptateur annonce `streaming: false`. La version précédente
+   * annonçait `true` sans qu'aucune méthode `subscribe` n'existe : une
+   * capacité déclarée que rien n'implémentait.
+   */
+  readonly socketFactory?: StreamSocketFactory;
+  readonly streamBaseUrl?: string;
+  /** Intervalle du battement de cœur. Le serveur ferme une connexion inactive. */
+  readonly heartbeatMs?: number;
 };
 
 type SymbolSearchRow = {
@@ -99,10 +122,32 @@ function currency(value: unknown): CurrencyCode | null {
   return isCurrencyCode(value) ? value : null;
 }
 
+/**
+ * Traduit `instrument_type` de Twelve Data vers la taxonomie interne.
+ *
+ * Comme chez EODHD, tout type non reconnu renvoyait `null` et la ligne était
+ * **silencieusement jetée** par l'appelant. Twelve Data couvre pourtant les
+ * devises, les cryptos, les indices et les matières premières : chercher
+ * « USD/CHF » ou « Gold » ne rendait rien, sans erreur pour l'expliquer.
+ *
+ * L'ordre compte : « exchange-traded » attrape les ETF avant que « fund » ne
+ * les capture comme fonds classiques, ce qui les ferait valoriser à la NAV au
+ * lieu du cours de bourse.
+ */
 function assetType(value: string): AssetType | null {
   const normalized = value.toLowerCase();
   if (normalized === "etf" || normalized.includes("exchange-traded")) return "ETF";
   if (normalized.includes("mutual fund") || normalized.includes("bond fund")) return "MUTUAL_FUND";
+  if (normalized.includes("index")) return "INDEX";
+  if (
+    normalized.includes("physical currency") ||
+    normalized.includes("forex") ||
+    normalized === "currency"
+  )
+    return "FX";
+  if (normalized.includes("digital currency") || normalized.includes("crypto")) return "CRYPTO";
+  if (normalized.includes("commodity")) return "COMMODITY";
+  if (normalized.includes("bond")) return "BOND";
   if (
     normalized.includes("common stock") ||
     normalized.includes("preferred stock") ||
@@ -254,8 +299,23 @@ export function createTwelveDataProvider(options: TwelveDataProviderOptions): Ma
           ref.exchangeMic === undefined ||
           candidate.exchangeMic === ref.exchangeMic),
     );
-    if (exact.length !== 1) return null;
-    const hit = exact[0]!;
+    if (exact.length === 0) return null;
+    if (exact.length > 1) {
+      /*
+       * Plusieurs places pour le même symbole. Renvoyer `null` faisait passer
+       * le routeur au fournisseur suivant, lequel pouvait choisir seul une
+       * place et une devise que l'utilisateur n'avait pas demandées.
+       */
+      throw new ProviderError(
+        "AMBIGUOUS",
+        TWELVE_DATA_PROVIDER_ID,
+        `${exact.length} instruments correspondent : ${exact
+          .map((item) => `${item.providerSymbol} @ ${item.exchangeMic ?? "?"} (${item.currency})`)
+          .join(", ")}`,
+      );
+    }
+    const hit = exact[0];
+    if (hit === undefined) return null;
     return {
       provider: TWELVE_DATA_PROVIDER_ID,
       providerSymbol: hit.providerSymbol,
@@ -296,14 +356,26 @@ export function createTwelveDataProvider(options: TwelveDataProviderOptions): Ma
     id: TWELVE_DATA_PROVIDER_ID,
     capabilities(): ProviderCapabilities {
       return {
-        assetTypes: ["STOCK", "ETF", "MUTUAL_FUND"],
+        /*
+         * Liste porteuse depuis LIVE-01 : le routeur n'appelle plus un
+         * fournisseur pour une classe absente. Elle omettait `FX` alors que
+         * `getFxRate` existe, si bien que les devises auraient cessé d'être
+         * servies sans qu'aucune erreur ne le dise.
+         */
+        assetTypes: ["STOCK", "ETF", "MUTUAL_FUND", "INDEX", "FX", "CRYPTO", "COMMODITY"],
         searchByText: true,
         // ISIN existe sur certains endpoints/add-ons mais n'est pas supposé actif sans preuve du plan.
         searchByIsin: false,
         optionChains: false,
         fx: true,
         history: true,
-        streaming: true,
+        /*
+         * `true` était annoncé sans qu'aucune méthode `subscribe` n'existe :
+         * une capacité déclarée que rien n'implémentait. Le routeur s'en
+         * protège, mais un fournisseur ne doit pas mentir sur ce qu'il sait
+         * faire — l'annonce suit désormais la présence d'une fabrique.
+         */
+        streaming: options.socketFactory !== undefined,
         bestFreshness: configuredFreshness,
         delayMinutes: configuredFreshness === "DELAYED" ? (options.delayMinutes ?? null) : null,
       };
@@ -412,5 +484,85 @@ export function createTwelveDataProvider(options: TwelveDataProviderOptions): Ma
         freshness: configuredFreshness,
       };
     },
+
+    /**
+     * Abonne un lot d'instruments au flux Twelve Data.
+     *
+     * Un seul socket suffit, contrairement à EODHD : Twelve Data multiplexe
+     * toutes les classes d'actifs sur un point d'entrée unique.
+     *
+     * Le battement de cœur n'est pas décoratif : le serveur ferme une
+     * connexion inactive, et une fermeture silencieuse pendant les heures
+     * creuses ressemble exactement à un marché sans transaction.
+     */
+    ...(options.socketFactory === undefined
+      ? {}
+      : {
+          async subscribe(
+            instruments: readonly ResolvedInstrument[],
+            onQuote: (quote: NormalizedQuote) => void,
+          ): Promise<SubscriptionHandle> {
+            const factory = options.socketFactory;
+            if (factory === undefined) {
+              throw new ProviderError(
+                "UNSUPPORTED",
+                TWELVE_DATA_PROVIDER_ID,
+                "Aucune fabrique de socket configurée",
+              );
+            }
+
+            const bySymbol = new Map(
+              instruments.map((instrument) => [instrument.providerSymbol, instrument]),
+            );
+
+            const socket: StreamSocket = factory(
+              twelveDataStreamUrl(options.apiKey, options.streamBaseUrl),
+            );
+
+            socket.addEventListener("open", () => {
+              socket.send(
+                JSON.stringify(twelveDataSubscription("subscribe", [...bySymbol.keys()])),
+              );
+            });
+
+            socket.addEventListener("message", (event: { data: unknown }) => {
+              const payload = decodeStreamMessage(event.data);
+              if (typeof payload !== "object" || payload === null) return;
+
+              const symbol =
+                "symbol" in payload ? String((payload as { symbol: unknown }).symbol) : null;
+              const instrument = symbol === null ? undefined : bySymbol.get(symbol);
+              if (instrument === undefined) return;
+
+              const quote = parseTwelveDataTick(payload, {
+                instrument,
+                receivedAt: now().toISOString(),
+                /*
+                 * La fraîcheur vient du plan souscrit, jamais du fait qu'un
+                 * tick soit arrivé : un plan différé envoie lui aussi des
+                 * messages par socket.
+                 */
+                freshness: configuredFreshness,
+              });
+              if (quote !== null) onQuote(quote);
+            });
+
+            const heartbeat = setInterval(() => {
+              socket.send(JSON.stringify(twelveDataHeartbeat()));
+            }, options.heartbeatMs ?? 10_000);
+            // Ne retient pas le processus Node à l'arrêt.
+            heartbeat.unref?.();
+
+            return {
+              async unsubscribe(): Promise<void> {
+                clearInterval(heartbeat);
+                socket.send(
+                  JSON.stringify(twelveDataSubscription("unsubscribe", [...bySymbol.keys()])),
+                );
+                socket.close();
+              },
+            };
+          },
+        }),
   };
 }
