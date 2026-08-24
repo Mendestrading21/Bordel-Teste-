@@ -1,4 +1,5 @@
 import { describeAge } from "./offline-age";
+import { Notice } from "./notice";
 
 /**
  * Bandeau « hors ligne ».
@@ -38,21 +39,27 @@ export function OfflineNotice({
   now = new Date(),
 }: Readonly<{ renderedAt: string; now?: Date }>): React.JSX.Element {
   return (
-    <div
-      className="pl-offline mb-4 rounded-token-md border border-warning/50 bg-surface px-4 py-3"
+    <Notice
       role="status"
-      aria-live="polite"
-    >
-      <p className="text-xs font-semibold tracking-wide text-warning uppercase">Hors ligne</p>
-      <p className="mt-1 text-sm text-secondary">
-        Les chiffres affichés proviennent de votre dernière connexion, le{" "}
-        <time dateTime={renderedAt} className="pl-numeric">
-          {formatAbsolute(renderedAt)}
-        </time>{" "}
-        (<span data-pl-age>{describeAge(new Date(renderedAt), now)}</span>). Aucun cours n&apos;a
-        été récupéré depuis, et aucune modification ne peut être enregistrée tant que la connexion
-        n&apos;est pas rétablie.
-      </p>
-    </div>
+      tone="warning"
+      icon="📡"
+      label="Hors ligne"
+      className="pl-offline"
+      summary={
+        <>
+          Chiffres de votre dernière connexion, le{" "}
+          <time dateTime={renderedAt} className="pl-numeric">
+            {formatAbsolute(renderedAt)}
+          </time>{" "}
+          (<span data-pl-age>{describeAge(new Date(renderedAt), now)}</span>).
+        </>
+      }
+      details={
+        <>
+          Aucun cours n&apos;a été récupéré depuis, et aucune modification ne peut être enregistrée
+          tant que la connexion n&apos;est pas rétablie.
+        </>
+      }
+    />
   );
 }

@@ -4,7 +4,7 @@ Dernière mise à jour : 24 août 2026
 
 ## Phase
 
-**Design V2 — DS-01 : tokens et primitives**
+**Design V2 — DS-02 : coquille, en-tête et navigation**
 
 ## État global
 
@@ -62,6 +62,38 @@ intouchables ».
 | DS-07 | Fonds et options                    | à faire |
 | DS-08 | Réglages, comptes, données et états | à faire |
 | DS-09 | Polish, motion, accessibilité, PWA  | à faire |
+
+### DS-02 — livrables vérifiés
+
+- **bandeaux compacts** : mode démonstration, hors ligne et état de session
+  passent d'un pavé de quatre lignes à une ligne de résumé, l'explication étant
+  repliée dans un `<details>` natif. Rien n'est masqué par JavaScript — une page
+  servie hors ligne est précisément le cas où l'hydratation peut ne pas
+  aboutir. Le mot « fictifs » reste dans la ligne visible : ce qui se replie
+  n'est que le _pourquoi_ ;
+- **en-tête d'écran resserré** : le sous-titre devient une ligne de méta, et une
+  zone `action` permet de poser un état à droite du titre plutôt qu'en dessous ;
+- **navigation basse** posée sur la surface élevée, onglet actif signalé par une
+  pastille d'accent **en plus** de la couleur et de `aria-current` ;
+- **effet mesuré** : le patrimoine total commence à 224 px du haut sur iPhone au
+  lieu de ~290 px, et la liste des six positions tient désormais dans un seul
+  écran en 430×932 ;
+- **garde-fou E2E** `montre le patrimoine total dès le haut de l'écran`, qui
+  borne la hauteur de tout ce qui précède le chiffre à 280 px. Un simple contrôle
+  « au-dessus de la ligne de flottaison » ne mordait pas : sur un écran de
+  844 px, le total pouvait glisser de 200 px de plus sans jamais en sortir.
+  Vérifié par mutation — le bandeau verbeux d'origine fait échouer le contrôle
+  sur les deux iPhone.
+
+Deux collisions corrigées pendant le lot :
+
+- le badge de fraîcheur était cherché par son libellé n'importe où dans la page,
+  ce qui faisait dépendre les parcours de la prose ; il porte désormais un
+  attribut `data-pl-freshness` que les tests visent directement ;
+- la page de secours hors ligne et le bandeau d'âge portaient tous deux un titre
+  « Hors ligne ». La page devient « Écran non enregistré » : une page datée
+  n'est pas une page absente, et deux titres identiques rendaient la navigation
+  par titres ambiguë.
 
 ### DS-01 — livrables vérifiés
 
