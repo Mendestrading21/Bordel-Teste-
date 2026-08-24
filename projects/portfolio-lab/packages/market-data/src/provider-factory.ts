@@ -20,6 +20,7 @@ export function createConfiguredProviders(env: NodeJS.ProcessEnv = process.env):
   const config = readLiveProviderConfig(env);
   const issues = [...validateLiveProviderConfig(config)];
   const providers: MarketDataProvider[] = [];
+  const timeoutMs = Number.parseInt(env.MARKET_DATA_REST_TIMEOUT_MS ?? "8000", 10);
 
   if (config.providers.eodhd?.enabled) {
     const mode = config.providers.eodhd.mode;
@@ -27,11 +28,7 @@ export function createConfiguredProviders(env: NodeJS.ProcessEnv = process.env):
     if (token === undefined) {
       issues.push("eodhd: aucune clé EODHD_API_KEY et mode différent de demo");
     } else if (mode === "demo" || mode === "live") {
-      providers.push(createEodhdProvider({
-        apiToken: token,
-        mode,
-        timeoutMs: Number.parseInt(env.MARKET_DATA_HTTP_TIMEOUT_MS ?? "8000", 10),
-      }));
+      providers.push(createEodhdProvider({ apiToken: token, mode, timeoutMs }));
     }
   }
 
@@ -50,7 +47,7 @@ export function createConfiguredProviders(env: NodeJS.ProcessEnv = process.env):
         mode,
         freshness,
         delayMinutes: Number.isFinite(parsedDelay) ? parsedDelay : null,
-        timeoutMs: Number.parseInt(env.MARKET_DATA_HTTP_TIMEOUT_MS ?? "8000", 10),
+        timeoutMs,
       }));
     }
   }
