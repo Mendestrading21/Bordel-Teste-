@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { colorTokens } from "@portfolio-lab/ui";
+
 const ROUTES = [
   { path: "/", heading: "Accueil" },
   { path: "/positions", heading: "Positions" },
@@ -80,7 +82,9 @@ test.describe("PWA", () => {
     const manifest = (await response.json()) as Record<string, unknown>;
     expect(manifest["display"]).toBe("standalone");
     expect(manifest["start_url"]).toBe("/");
-    expect(manifest["theme_color"]).toBe("#0B0E11");
+    // Lu depuis le token : le manifeste peint la barre d'état iOS, un endroit
+    // qu'aucune capture de l'application ne montre.
+    expect(manifest["theme_color"]).toBe(colorTokens.backgroundCanvas);
     expect(Array.isArray(manifest["icons"])).toBe(true);
   });
 

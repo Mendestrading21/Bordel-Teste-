@@ -40,7 +40,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0B0E11",
+  /*
+   * Couleur de la barre d'état iOS et du chrome Android. Elle doit suivre
+   * `--pl-background-canvas` : une valeur figée ferait apparaître une bande
+   * d'une autre couleur en haut de l'écran après un changement de palette.
+   * `manifest.test.ts` vérifie la correspondance.
+   */
+  themeColor: "#060D18",
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,

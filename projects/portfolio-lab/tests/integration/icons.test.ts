@@ -4,7 +4,9 @@ import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 
 // @ts-expect-error — script d'outillage en JavaScript, sans déclaration de types.
-import { buildIcons } from "../../scripts/generate-icons.mjs";
+import * as generator from "../../scripts/generate-icons.mjs";
+
+const buildIcons = generator.buildIcons as () => unknown[];
 
 type GeneratedIcon = { file: string; size: number; padding: number; data: Buffer };
 
@@ -58,8 +60,13 @@ function decodePng(buffer: Buffer): {
   };
 }
 
-const CANVAS = [0x0b, 0x0e, 0x11, 0xff];
-const COPPER = [0xc8, 0x7f, 0x4a, 0xff];
+/*
+ * Les couleurs attendues viennent du générateur, qui les lit lui-même dans
+ * `tokens.css`. Les recopier ici reviendrait à vérifier une constante contre
+ * elle-même tout en créant un second endroit à mettre à jour.
+ */
+const CANVAS = [...(generator.CANVAS as number[]), 0xff];
+const ACCENT = [...(generator.ACCENT as number[]), 0xff];
 
 describe("génération des icônes PWA", () => {
   it("produit les quatre fichiers attendus par le manifeste", () => {
@@ -77,19 +84,19 @@ describe("génération des icônes PWA", () => {
     expect(png.height).toBe(icon.size);
   });
 
-  it.each(icons)("$file peint le fond obsidienne dans les coins", (icon) => {
+  it.each(icons)("$file peint le fond de l'application dans les coins", (icon) => {
     const png = decodePng(icon.data);
     expect([...png.pixelAt(0, 0)]).toEqual(CANVAS);
     expect([...png.pixelAt(icon.size - 1, 0)]).toEqual(CANVAS);
     expect([...png.pixelAt(0, icon.size - 1)]).toEqual(CANVAS);
   });
 
-  it.each(icons)("$file dessine la barre cuivre la plus haute à droite", (icon) => {
+  it.each(icons)("$file dessine la barre d'accent la plus haute à droite", (icon) => {
     const png = decodePng(icon.data);
     const inset = Math.round(icon.size * icon.padding);
     // Sommet de la troisième barre : elle atteint le haut de la zone utile.
     const x = icon.size - inset - 2;
-    expect([...png.pixelAt(x, inset + 2)]).toEqual(COPPER);
+    expect([...png.pixelAt(x, inset + 2)]).toEqual(ACCENT);
   });
 
   it.each(icons)("$file laisse la marge de sécurité demandée", (icon) => {

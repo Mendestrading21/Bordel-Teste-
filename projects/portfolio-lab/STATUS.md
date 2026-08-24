@@ -83,6 +83,13 @@ intouchables ».
   pleinement arrondies, et un rayon `xl` est ajouté pour le bloc dominant de
   l'accueil. `radius.test.ts` recopie les plages du système et refuse une
   dérive ;
+- **chrome PWA et icônes alignés sur la palette** : `theme_color`,
+  `background_color` et l'icône d'écran d'accueil restaient à l'ancien fond
+  `#0B0E11`. Ce sont les seuls endroits où une couleur périmée reste visible
+  sans qu'aucune capture de l'application ne la montre — la bande apparaît
+  autour de la page, pas dedans. Le générateur d'icônes lit désormais
+  `tokens.css` au lieu de recopier les hexadécimaux, et un test lie le
+  manifeste au token ;
 - **script de captures** `scripts/design-shots.mjs`, qui produit les paires
   AVANT / APRÈS de chaque lot sur 390×844, 430×932 et desktop.
 
