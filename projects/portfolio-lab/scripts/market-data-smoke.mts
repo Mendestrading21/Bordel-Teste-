@@ -65,9 +65,10 @@ await record("Twelve Data", "AAPL search + snapshot", async () => {
   });
 });
 
+const coinGeckoKey = process.env.COINGECKO_API_KEY;
 const coinGecko = createCoinGeckoProvider({
-  mode: process.env.COINGECKO_API_KEY ? "demo" : "keyless",
-  apiKey: process.env.COINGECKO_API_KEY,
+  mode: coinGeckoKey === undefined ? "keyless" : "demo",
+  ...(coinGeckoKey === undefined ? {} : { apiKey: coinGeckoKey }),
 });
 
 await record("CoinGecko", "Bitcoin USD", async () => snapshot(coinGecko, {
