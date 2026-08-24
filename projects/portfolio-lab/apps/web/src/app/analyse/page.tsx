@@ -7,14 +7,16 @@ import { formatPercent } from "@portfolio-lab/ui";
 
 import { DemoBanner } from "@/components/demo-banner";
 import { EmptyState } from "@/components/empty-state";
-import { Money, Percent } from "@/components/money";
+import { Money } from "@/components/money";
 import { OptionExposure } from "@/components/option-exposure";
 import { PageHeader } from "@/components/page-header";
+import { Card } from "@/components/ui";
 import { PnlContributions } from "@/components/pnl-contributions";
 import { Reconciliation } from "@/components/reconciliation";
 import { SnapshotForm } from "@/components/snapshot-form";
-import { WealthChart } from "@/components/wealth-chart";
+import { WealthHistory } from "@/components/wealth-history";
 import { loadAnalytics } from "@/lib/data/analytics";
+import { historyPeriods } from "@/lib/history-periods";
 import { loadPortfolioView } from "@/lib/data/portfolio";
 
 export const metadata: Metadata = { title: "Analyse" };
@@ -128,6 +130,29 @@ export default async function AnalysePage(): Promise<React.JSX.Element> {
     view.positions.map((position) => [position.positionId, position.instrumentName]),
   );
 
+  /*
+   * Les fenêtres sont découpées ici, sur le serveur : le moteur décimal reste
+   * hors du navigateur, et les bornes ne peuvent pas différer entre ce qui est
+   * calculé et ce qui est affiché.
+   *
+   * L'ancrage est la date du jour, pas celle du dernier point : « 1 mois »
+   * désigne le dernier mois écoulé. Si l'historique s'arrête il y a six mois,
+   * les fenêtres courtes disparaissent — c'est l'information juste.
+   */
+  const history = analytics?.history ?? [];
+  const today = new Date().toISOString().slice(0, 10);
+  const periods = historyPeriods(history, today);
+
+  /** Pourquoi aucune courbe n'est tracée — jamais un écran muet. */
+  const historyGap =
+    history.length === 0
+      ? "Aucun point enregistré pour l'instant. L'historique se construit à partir de valorisations réellement effectuées : reconstituer une courbe passée avec les cours d'aujourd'hui produirait un graphique convaincant et faux."
+      : history.length === 1
+        ? `Un seul point enregistré, le ${history[0]?.date}. Une variation demande au moins deux points.`
+        : analytics !== null && !analytics.comparable
+          ? "L'historique mêle plusieurs versions du moteur de calcul ou plusieurs devises de consolidation. Les points ne sont pas comparables entre eux ; la courbe n'est donc pas tracée."
+          : "Aucune fenêtre ne contient deux points enregistrés. Les points existants sont trop espacés pour former une courbe.";
+
   return (
     <>
       <PageHeader
@@ -136,73 +161,40 @@ export default async function AnalysePage(): Promise<React.JSX.Element> {
       />
       <DemoBanner mode={view.mode} />
 
-      <section className="rounded-token-lg border border-subtle bg-surface p-5">
-        <h2 className="text-base font-medium text-primary">Évolution du patrimoine</h2>
+      {/*
+       * 1 et 2. Période puis évolution : la première question quotidienne est
+       * « qu'est-ce qui a bougé », et elle n'a de sens qu'une fois la fenêtre
+       * de lecture choisie.
+       */}
+      {periods.length > 0 ? (
+        <WealthHistory periods={periods} currency={currency} />
+      ) : (
+        <Card as="section" padding="md" aria-labelledby="evolution">
+          <h2 id="evolution" className="text-xs tracking-wide text-tertiary uppercase">
+            Évolution
+          </h2>
+          <p className="mt-2 text-sm text-stale">{historyGap}</p>
+        </Card>
+      )}
 
-        {analytics === null || analytics.history.length === 0 ? (
-          <p className="mt-1 text-sm text-secondary">
-            Aucun point enregistré pour l&apos;instant. L&apos;historique se construit à partir de
-            valorisations réellement effectuées : reconstituer une courbe passée avec les cours
-            d&apos;aujourd&apos;hui produirait un graphique convaincant et faux.
-          </p>
-        ) : analytics.history.length === 1 ? (
-          <p className="mt-1 text-sm text-secondary">
-            Un seul point enregistré, le{" "}
-            <span className="pl-numeric">{analytics.history[0]?.date}</span>. Une variation demande
-            au moins deux points.
-          </p>
-        ) : !analytics.comparable || analytics.change === null || analytics.bounds === null ? (
-          /*
-           * Une série non comparable n'est pas tracée du tout : superposer des
-           * points venus de deux versions du moteur — ou de deux devises de
-           * consolidation — dessinerait une marche qui ne correspond à aucun
-           * mouvement de patrimoine.
-           */
-          <p className="mt-1 text-sm text-secondary">
-            L&apos;historique mêle plusieurs versions du moteur de calcul ou plusieurs devises de
-            consolidation. Les points ne sont pas comparables entre eux ; la courbe n&apos;est donc
-            pas tracée.
-          </p>
-        ) : (
-          <>
-            <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-              <div>
-                <dt className="text-xs tracking-wide text-secondary uppercase">Variation</dt>
-                <dd className="mt-0.5">
-                  <Money value={analytics.change.absolute} currency={currency} colored />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs tracking-wide text-secondary uppercase">Sur la période</dt>
-                <dd className="mt-0.5">
-                  <Percent value={analytics.change.relative} />
-                </dd>
-              </div>
-            </dl>
-            <WealthChart
-              history={analytics.history}
-              bounds={analytics.bounds}
-              currency={currency}
-            />
-          </>
-        )}
-
-        <div className="mt-4 border-t border-subtle pt-4">
-          <SnapshotForm />
-          <p className="mt-2 text-xs leading-relaxed text-secondary">
-            Le point enregistre les totaux actuels, la version du moteur de calcul et une empreinte
-            des cours et taux utilisés. Deux enregistrements au même instant mettent à jour le même
-            point plutôt que d&apos;en créer deux.
-          </p>
-        </div>
-      </section>
-
+      {/* 3. Répartition : une carte, une question. */}
       <AllocationList
-        title="Par classe d'actifs"
+        title="Répartition par classe d'actifs"
         slices={byAssetType}
         labels={assetLabels}
         currency={currency}
       />
+
+      {/* 4. Performance par position. */}
+      {analytics === null ? null : (
+        <PnlContributions
+          contributions={analytics.contributions}
+          labels={positionLabels}
+          currency={currency}
+        />
+      )}
+
+      {/* 5. Comptes et devises : deux découpages de la même question. */}
       <AllocationList
         title="Par compte"
         slices={byAccount}
@@ -216,30 +208,25 @@ export default async function AnalysePage(): Promise<React.JSX.Element> {
         currency={currency}
       />
 
-      {analytics === null ? null : (
-        <>
-          <PnlContributions
-            contributions={analytics.contributions}
-            labels={positionLabels}
-            currency={currency}
-          />
-          <OptionExposure
-            exposures={analytics.options}
-            excluded={analytics.optionsExcluded}
-            currency={currency}
-          />
-          <Reconciliation
-            result={analytics.reconciliation}
-            fingerprint={analytics.fingerprint}
-            currency={currency}
-          />
-        </>
-      )}
-
-      <section className="mt-4 rounded-token-lg border border-subtle bg-surface p-5">
-        <h2 className="mb-1 text-base font-medium text-primary">Fonds de placement</h2>
-        <p className="mb-3 text-sm text-secondary">
-          Les fonds sont valorisés par leur dernière NAV publiée, avec sa date et sa fréquence.
+      {/*
+       * 6. Section avancée.
+       *
+       * Exposition options, réconciliation et enregistrement d'un point sont
+       * des outils de vérification, pas des questions quotidiennes. Dépliés en
+       * permanence, ils doublaient la hauteur de l'écran sous les chiffres que
+       * l'on vient réellement consulter.
+       */}
+      {/*
+       * Le lien vers les fonds reste hors de la section avancée : c'est de la
+       * navigation vers un écran que l'on consulte, pas un outil de
+       * vérification. Replié, il devenait introuvable.
+       */}
+      <Card as="section" padding="md" className="mt-4" aria-labelledby="fonds">
+        <h2 id="fonds" className="text-xs tracking-wide text-tertiary uppercase">
+          Fonds de placement
+        </h2>
+        <p className="mt-1 text-xs text-tertiary">
+          Valorisés par leur dernière NAV publiée, avec sa date et sa fréquence.
         </p>
         <Link
           href="/fonds"
@@ -247,7 +234,56 @@ export default async function AnalysePage(): Promise<React.JSX.Element> {
         >
           Voir le détail des fonds →
         </Link>
-      </section>
+      </Card>
+
+      {/*
+       * Le dépliant ne porte **aucune bordure** : ses deux pixels rétrécissaient
+       * les sections imbriquées, et le tableau d'exposition se remettait à
+       * tronquer le notionnel sur 390 px. Seul le résumé est stylé en barre.
+       */}
+      <details className="group mt-4">
+        <summary className="flex min-h-[var(--pl-touch-target)] cursor-pointer list-none items-center justify-between gap-3 rounded-token-lg border border-subtle bg-surface px-5 text-sm text-secondary">
+          <span>Détails avancés</span>
+          <span aria-hidden="true" className="text-xs text-tertiary group-open:hidden">
+            Afficher
+          </span>
+          <span aria-hidden="true" className="hidden text-xs text-tertiary group-open:inline">
+            Masquer
+          </span>
+        </summary>
+
+        {/*
+         * Aucune marge horizontale ici : les sections imbriquées portent déjà
+         * la leur. En ajouter une rétrécissait le conteneur du tableau
+         * d'exposition, qui se remettait à tronquer le notionnel — le défaut
+         * même qu'un parcours E2E surveille depuis le Lot 08.
+         */}
+        <div className="pb-2">
+          {analytics === null ? null : (
+            <>
+              <OptionExposure
+                exposures={analytics.options}
+                excluded={analytics.optionsExcluded}
+                currency={currency}
+              />
+              <Reconciliation
+                result={analytics.reconciliation}
+                fingerprint={analytics.fingerprint}
+                currency={currency}
+              />
+            </>
+          )}
+
+          <div className="mt-4 rounded-token-lg border border-subtle bg-surface p-5">
+            <SnapshotForm />
+            <p className="mt-2 text-xs leading-relaxed text-tertiary">
+              Le point enregistre les totaux actuels, la version du moteur de calcul et une
+              empreinte des cours et taux utilisés. Deux enregistrements au même instant mettent à
+              jour le même point plutôt que d&apos;en créer deux.
+            </p>
+          </div>
+        </div>
+      </details>
 
       <p className="mt-4 text-xs leading-relaxed text-secondary">
         Les parts sont calculées sur l&apos;exposition brute, en valeurs absolues. Les positions

@@ -114,15 +114,26 @@ values
 -- -----------------------------------------------------------------------------
 -- Historique de démonstration
 --
--- Points fictifs, à dates fixes, pour que l'écran d'analyse ait une courbe à
--- montrer sans qu'aucun cours réel n'entre dans le dépôt.
+-- Points fictifs, pour que l'écran d'analyse ait une courbe à montrer sans
+-- qu'aucun cours réel n'entre dans le dépôt.
+--
+-- Les dates sont **relatives à l'installation du seed**, pas écrites en dur.
+-- Des dates fixes vieillissent : passé un an, l'historique de démonstration
+-- sortait de toutes les fenêtres de lecture et la courbe disparaissait de
+-- l'écran sans que rien n'ait changé dans le code. Le décalage en jours est en
+-- revanche figé, pour que la forme de la courbe reste identique d'une
+-- installation à l'autre.
+--
+-- Les écarts choisis couvrent plusieurs fenêtres : les deux points récents
+-- alimentent « 3 mois », les points intermédiaires « 6 mois », les plus anciens
+-- « Tout ».
 --
 -- La `calculation_version` doit rester celle du moteur : un historique produit
 -- par une autre version n'est délibérément pas tracé. Un test d'intégration
 -- vérifie cette égalité, pour qu'une montée de version fasse échouer la suite
 -- plutôt que d'effacer silencieusement la courbe de démonstration.
 --
--- Le 2026-05-06 porte volontairement DEUX points : c'est le cas prévu par
+-- Une journée porte volontairement DEUX points : c'est le cas prévu par
 -- DATA_MODEL.md — un snapshot après publication des données, un autre après une
 -- modification manuelle. L'historique quotidien doit retenir le second.
 -- -----------------------------------------------------------------------------
@@ -133,17 +144,30 @@ insert into portfolio_snapshots (
   base_currency, calculation_version
 )
 values
-  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-04T17:35:00Z',
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001',
+   date_trunc('day', now()) - interval '300 days' + interval '17 hours 35 minutes',
+   17820.000000000000, 18960.000000000000, -1140.000000000000, -95.000000000000, 'CHF', '1.0.0'),
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001',
+   date_trunc('day', now()) - interval '200 days' + interval '17 hours 35 minutes',
+   18540.000000000000, 18960.000000000000, -420.000000000000, 60.000000000000, 'CHF', '1.0.0'),
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001',
+   date_trunc('day', now()) - interval '110 days' + interval '17 hours 35 minutes',
    19420.000000000000, 18960.000000000000, 460.000000000000, 85.000000000000, 'CHF', '1.0.0'),
-  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-05T17:35:00Z',
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001',
+   date_trunc('day', now()) - interval '109 days' + interval '17 hours 35 minutes',
    19180.000000000000, 18960.000000000000, 220.000000000000, -240.000000000000, 'CHF', '1.0.0'),
-  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-06T17:35:00Z',
+  -- Même journée, deux points : l'historique quotidien doit retenir le second.
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001',
+   date_trunc('day', now()) - interval '108 days' + interval '17 hours 35 minutes',
    19310.000000000000, 18960.000000000000, 350.000000000000, 130.000000000000, 'CHF', '1.0.0'),
-  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-06T20:10:00Z',
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001',
+   date_trunc('day', now()) - interval '108 days' + interval '20 hours 10 minutes',
    19365.000000000000, 18960.000000000000, 405.000000000000, 185.000000000000, 'CHF', '1.0.0'),
-  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-07T17:35:00Z',
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001',
+   date_trunc('day', now()) - interval '20 days' + interval '17 hours 35 minutes',
    19740.000000000000, 18960.000000000000, 780.000000000000, 375.000000000000, 'CHF', '1.0.0'),
-  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001', '2026-05-08T17:35:00Z',
+  (:'demo_user', 'd0000000-0000-4000-8000-00000000f001',
+   date_trunc('day', now()) - interval '10 days' + interval '17 hours 35 minutes',
    19905.000000000000, 18960.000000000000, 945.000000000000, 165.000000000000, 'CHF', '1.0.0');
 
 /*

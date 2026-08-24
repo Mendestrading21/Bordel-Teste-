@@ -282,10 +282,22 @@ describe.skipIf(!hasTestDatabase)("historique de démonstration", () => {
       })),
     );
 
-    expect(rows).toHaveLength(6);
-    expect(history).toHaveLength(5);
-    // Le 6 mai porte deux points ; c'est celui de 20 h 10 qui est retenu.
-    const sixth = history.find((entry) => entry.date === "2026-05-06");
-    expect(sixth?.marketValueBase).toBe("19365.000000000000");
+    /*
+     * Les dates du seed sont relatives à son installation — des dates fixes
+     * vieillissent et finissent par sortir de toutes les fenêtres de lecture.
+     * L'assertion porte donc sur la forme de l'historique, jamais sur un jour
+     * du calendrier.
+     */
+    expect(rows).toHaveLength(8);
+    expect(history).toHaveLength(7);
+
+    // Une journée porte deux points ; c'est celui de 20 h 10 qui est retenu.
+    const doubled = history.find((entry) => entry.marketValueBase === "19365.000000000000");
+    expect(doubled).toBeDefined();
+    expect(history.filter((entry) => entry.date === doubled?.date)).toHaveLength(1);
+
+    // Le point de 17 h 35 de cette même journée a bien été écarté.
+    expect(history.some((entry) => entry.marketValueBase === "19310.000000000000")).toBe(false);
+    expect(rows.some((row) => row.market_value_base === "19310.000000000000")).toBe(true);
   });
 });

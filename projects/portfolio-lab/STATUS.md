@@ -4,7 +4,7 @@ Dernière mise à jour : 24 août 2026
 
 ## Phase
 
-**Design V2 — DS-05 : parcours d'ajout simplifié**
+**Design V2 — DS-06 : analyse et graphiques**
 
 ## État global
 
@@ -58,10 +58,50 @@ intouchables ».
 | DS-03 | Accueil et patrimoine               | terminé |
 | DS-04 | Positions et fiche détaillée        | terminé |
 | DS-05 | Parcours d'ajout simplifié          | terminé |
-| DS-06 | Analyse et graphiques               | à faire |
+| DS-06 | Analyse et graphiques               | terminé |
 | DS-07 | Fonds et options                    | à faire |
 | DS-08 | Réglages, comptes, données et états | à faire |
 | DS-09 | Polish, motion, accessibilité, PWA  | à faire |
+
+### DS-06 — livrables vérifiés
+
+- **sélecteur de période** au-dessus de la courbe. Les fenêtres sont découpées
+  **sur le serveur** : le moteur décimal reste hors du navigateur, et les
+  bornes ne peuvent pas différer entre ce qui est calculé et ce qui est
+  affiché. Une fenêtre n'est proposée que si elle contient au moins deux points
+  **réellement enregistrés** — « 1 mois » ne reconstitue jamais une valeur d'il
+  y a trente jours ;
+- **les fenêtres identiques sont fusionnées, sous le libellé le plus étroit.**
+  Proposer « 1 mois », « 3 mois » et « 6 mois » pour la même courbe donne trois
+  onglets qui ne changent jamais rien ; et un onglet « 3 mois » au-dessus d'une
+  courbe de vingt jours se lit comme un écran cassé. Seul « Tout » garde son
+  libellé large : il ne promet pas une durée, il dit que rien n'est écarté ;
+- **écran réordonné selon l'architecture d'information** : période, évolution,
+  répartition, performance par position, comptes et devises. Une carte, une
+  question ;
+- **section « Détails avancés » repliée** : exposition options, réconciliation
+  et enregistrement d'un point sont des outils de vérification, pas des
+  questions quotidiennes. La page passe de 2 270 à 1 745 pixels sur desktop ;
+- **huit tests unitaires** sur le découpage : série non comparable, fenêtre à
+  un seul point, fusion, variation calculée sur les seuls points de la fenêtre,
+  date d'ancrage invalide.
+
+Trois défauts trouvés pendant le lot :
+
+- **l'historique de démonstration vieillissait.** Ses dates étaient écrites en
+  dur en mai 2026 : passé un an, il serait sorti de toutes les fenêtres et la
+  courbe aurait disparu de l'écran sans qu'une ligne de code ait changé. Les
+  dates du seed sont désormais relatives à son installation, les décalages en
+  jours restant figés pour que la forme de la courbe soit identique d'une
+  installation à l'autre. Deux tests qui citaient des dates du calendrier ont
+  été réécrits pour porter sur la forme de l'historique ;
+- **le dépliant tronquait le tableau d'exposition.** Ses deux pixels de bordure
+  rétrécissaient les sections imbriquées, et le notionnel se remettait à être
+  coupé sur 390 px — le défaut même qu'un parcours E2E surveille depuis le
+  Lot 08, qui l'a repris immédiatement. Le dépliant ne porte plus de bordure ;
+- **le lien vers les fonds était devenu introuvable**, replié avec les outils
+  de vérification. C'est de la navigation, pas de la vérification : il est
+  ressorti dans sa propre carte.
 
 ### DS-05 — livrables vérifiés
 
