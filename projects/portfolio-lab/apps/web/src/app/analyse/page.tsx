@@ -59,7 +59,7 @@ function AllocationList({
                 role="presentation"
               >
                 <div
-                  className="h-full bg-copper"
+                  className="h-full bg-accent"
                   style={{ width: `${Math.max(0, Math.min(100, percent * 100))}%` }}
                 />
               </div>
@@ -243,7 +243,7 @@ export default async function AnalysePage(): Promise<React.JSX.Element> {
         </p>
         <Link
           href="/fonds"
-          className="inline-flex min-h-[var(--pl-touch-target)] items-center text-sm text-copper hover:underline"
+          className="inline-flex min-h-[var(--pl-touch-target)] items-center text-sm text-accent hover:underline"
         >
           Voir le détail des fonds →
         </Link>

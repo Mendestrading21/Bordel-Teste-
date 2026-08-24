@@ -1,5 +1,6 @@
-import Link from "next/link";
 import type { Route } from "next";
+
+import { ButtonLink, Card } from "./ui";
 
 /**
  * État vide générique.
@@ -18,7 +19,7 @@ export function EmptyState({
   action?: { href: Route; label: string };
 }>): React.JSX.Element {
   return (
-    <section className="rounded-token-lg border border-subtle bg-surface p-6 text-center">
+    <Card as="section" padding="lg" className="text-center">
       <h2 className="text-lg font-medium text-primary">{title}</h2>
       <div className="mx-auto mt-3 max-w-prose space-y-2 text-sm leading-relaxed text-secondary">
         {lines.map((line) => (
@@ -26,14 +27,12 @@ export function EmptyState({
         ))}
       </div>
       {action ? (
-        <Link
-          href={action.href}
-          className="mt-6 inline-flex min-h-[var(--pl-touch-target)] items-center justify-center rounded-token-md border border-copper px-5 text-sm font-medium text-copper transition-colors hover:bg-elevated"
-          style={{ transitionDuration: "var(--pl-transition-fast)" }}
-        >
-          {action.label}
-        </Link>
+        <div className="mt-6 flex justify-center">
+          <ButtonLink href={action.href} variant="primary">
+            {action.label}
+          </ButtonLink>
+        </div>
       ) : null}
-    </section>
+    </Card>
   );
 }
