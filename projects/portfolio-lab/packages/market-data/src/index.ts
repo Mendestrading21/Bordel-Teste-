@@ -26,3 +26,4 @@ export * from "./twelve-data-stream.js";
 export * from "./massive-normalisation.js";
 export * from "./massive-provider.js";
 export * from "./finra-trace.js";
+export * from "./query-classification.js";
