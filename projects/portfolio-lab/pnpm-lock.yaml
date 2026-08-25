@@ -33,6 +33,9 @@ importers:
       '@portfolio-lab/portfolio-engine':
         specifier: workspace:*
         version: link:packages/portfolio-engine
+      '@portfolio-lab/security':
+        specifier: workspace:*
+        version: link:packages/security
       '@portfolio-lab/ui':
         specifier: workspace:*
         version: link:packages/ui

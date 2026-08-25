@@ -26,6 +26,26 @@ export const liveTokenLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 
  * sauvegarde. Dix laissent passer toute séquence humaine plausible tout en
  * arrêtant net une boucle scriptée.
  */
+/**
+ * Rafraîchissement des cours.
+ *
+ * Trente par minute : l'interface scrute à intervalle nettement plus lent, mais
+ * plusieurs onglets ouverts sur le même compte partagent ce compteur, et un
+ * retour d'arrière-plan déclenche un rafraîchissement immédiat. La limite doit
+ * absorber cette rafale sans punir un usage normal, tout en arrêtant une boucle
+ * qui viderait le quota du fournisseur.
+ */
+export const quoteRefreshLimiter = createRateLimiter({ limit: 30, windowMs: 60_000 });
+
+/**
+ * Tentatives de connexion.
+ *
+ * Dix par cinq minutes. Assez pour une phrase mal tapée plusieurs fois de
+ * suite, très loin de ce qu'exigerait un essai systématique — d'autant que
+ * chaque vérification coûte déjà environ 200 ms de `scrypt`.
+ */
+export const loginLimiter = createRateLimiter({ limit: 10, windowMs: 300_000 });
+
 export const exportLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
 
 /**

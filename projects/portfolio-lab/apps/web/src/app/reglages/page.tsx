@@ -4,6 +4,8 @@ import { CALCULATION_VERSION } from "@portfolio-lab/portfolio-engine";
 
 import { ArchiveAccountForm, CreateAccountForm } from "@/components/account-forms";
 import { DeletionSection, ExportSection } from "@/components/data-management";
+import { LogoutSection } from "@/components/logout-section";
+import { requireOwner } from "@/lib/auth/owner";
 import { DemoBanner } from "@/components/demo-banner";
 import { PageHeader } from "@/components/page-header";
 import { Card, Chip } from "@/components/ui";
@@ -69,6 +71,7 @@ const MODE_LABEL = {
 } as const;
 
 export default async function ReglagesPage(): Promise<React.JSX.Element> {
+  await requireOwner();
   const view = await loadPortfolioView();
   const providers = listProviderStatus();
 
@@ -181,7 +184,7 @@ export default async function ReglagesPage(): Promise<React.JSX.Element> {
           </p>
         )}
 
-        <ul className="mt-3">
+        <ul className="mt-3" data-pl-providers>
           {providers.map((provider) => (
             <li key={provider.id} className="border-b border-subtle py-2.5 last:border-b-0">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -244,6 +247,8 @@ export default async function ReglagesPage(): Promise<React.JSX.Element> {
           même version du moteur.
         </p>
       </Section>
+
+      <LogoutSection />
 
       {/*
        * Zone irréversible, isolée en bas et séparée du reste.

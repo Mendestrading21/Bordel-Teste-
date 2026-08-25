@@ -13,6 +13,7 @@ import {
 import {
   loadMarkFixture,
   valuePortfolio,
+  type FxTable,
   type MarkFixture,
   type PositionInput,
   type PortfolioValuation,
@@ -20,9 +21,13 @@ import {
 import { toDecimalString, type CurrencyCode, type DecimalString } from "@portfolio-lab/domain";
 import { presentNav, type NavFrequency } from "@portfolio-lab/market-data";
 
+import { fxTableFromReport } from "@/lib/live/fx-table";
+import { fetchFxRates } from "@/lib/live/quote-service";
+
 import demoMarks from "../../../../../tests/fixtures/demo-marks.json" with { type: "json" };
 
 import { resolveDataMode, type DataMode } from "./mode";
+import { currentUserId } from "@/lib/auth/owner";
 
 /**
  * Accès aux données de portefeuille côté serveur.
@@ -88,6 +93,29 @@ const EMPTY_VIEW = (mode: DataMode): PortfolioView => ({
 });
 
 /**
+ * Table de taux à utiliser pour la valorisation.
+ *
+ * Un taux réellement obtenu remplace celui de la fixture. Un taux **manquant**
+ * ne provoque pas de repli sur la fixture : la devise disparaît de la table, et
+ * le moteur rend les positions concernées non valorisées avec leur motif. Se
+ * rabattre sur un taux de démonstration produirait un total plausible et faux,
+ * sans que rien ne le distingue d'un total correct.
+ */
+async function resolveFxTable(
+  currencies: readonly CurrencyCode[],
+  baseCurrency: CurrencyCode,
+  fallback: FxTable,
+): Promise<FxTable> {
+  const report = await fetchFxRates(currencies, baseCurrency);
+
+  // Aucun fournisseur configuré : les taux de fixture restent en place, avec
+  // leur fraîcheur `MANUAL`, que le moteur propage à chaque ligne convertie.
+  if (report === null) return fallback;
+
+  return fxTableFromReport(report);
+}
+
+/**
  * Requête unique récupérant positions, comptes et instruments.
  *
  * Une seule requête plutôt qu'une boucle de lectures : le nombre de positions
@@ -146,7 +174,7 @@ export async function loadPortfolioView(): Promise<PortfolioView> {
     return EMPTY_VIEW(mode);
   }
 
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   if (userId === null) {
     /*
      * Mode `database` sans session authentifiée.
@@ -261,18 +289,32 @@ export async function loadPortfolioView(): Promise<PortfolioView> {
       multiplier: position.multiplier,
     }));
 
+    const baseCurrency = portfolio.base_currency as CurrencyCode;
+
+    /*
+     * Les taux de change viennent d'un fournisseur réel dès qu'il en existe un.
+     *
+     * Ils venaient jusqu'ici des fixtures **en toutes circonstances**. Sur un
+     * portefeuille de démonstration c'est sans conséquence : tout y est marqué
+     * « Manuel ». Sur des positions réelles, cela convertissait de vrais
+     * montants en USD avec un taux inventé, et le total en CHF paraissait aussi
+     * solide que s'il avait été juste — le pire cas possible, parce que rien à
+     * l'écran ne le signalait.
+     *
+     * Quand aucun fournisseur n'est configuré, les taux de fixture restent
+     * utilisés mais portent leur fraîcheur d'origine, `MANUAL`, que le moteur
+     * propage à chaque ligne convertie.
+     */
+    const currencies = [...new Set(positions.map((position) => position.costCurrency))];
+    const fxTable = await resolveFxTable(currencies, baseCurrency, fixture.fx);
+
     return {
       mode,
       authenticated: true,
       portfolio,
       accounts,
       positions,
-      valuation: valuePortfolio(
-        inputs,
-        navMarks,
-        fixture.fx,
-        portfolio.base_currency as CurrencyCode,
-      ),
+      valuation: valuePortfolio(inputs, navMarks, fxTable, baseCurrency),
       marksAsOf: fixture.asOf,
     };
   });
@@ -295,7 +337,7 @@ export type InstrumentOptionRecord = {
  */
 export async function listInstruments(): Promise<readonly InstrumentOptionRecord[]> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   if (userId === null) {
     return [];
   }

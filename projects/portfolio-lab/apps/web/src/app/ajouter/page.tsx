@@ -4,13 +4,16 @@ import type { AssetType } from "@portfolio-lab/domain";
 import { AccountsHint, AddPositionFlow } from "@/components/add-position-flow";
 import { DemoBanner } from "@/components/demo-banner";
 import { EmptyState } from "@/components/empty-state";
+import { InstrumentForm } from "@/components/instrument-form";
 import { PageHeader } from "@/components/page-header";
 import { listInstruments, loadPortfolioView } from "@/lib/data/portfolio";
+import { requireOwner } from "@/lib/auth/owner";
 
 export const metadata: Metadata = { title: "Ajouter" };
 export const dynamic = "force-dynamic";
 
 export default async function AjouterPage(): Promise<React.JSX.Element> {
+  await requireOwner();
   const [view, instruments] = await Promise.all([loadPortfolioView(), listInstruments()]);
 
   const header = (
@@ -58,16 +61,38 @@ export default async function AjouterPage(): Promise<React.JSX.Element> {
     <>
       {header}
 
-      <AddPositionFlow
-        accounts={view.accounts.map((account) => ({ id: account.id, name: account.name }))}
-        instruments={instruments.map((instrument) => ({
-          id: instrument.id,
-          name: instrument.name,
-          assetType: instrument.assetType as AssetType,
-          currency: instrument.currency,
-        }))}
-      />
-      <AccountsHint />
+      {/*
+       * Le parcours d'ajout n'apparaît qu'une fois le référentiel garni : il
+       * n'y a rien à choisir dans un sélecteur sans entrée, et c'est l'état de
+       * toute base neuve.
+       */}
+      {instruments.length === 0 ? null : (
+        <AddPositionFlow
+          accounts={view.accounts.map((account) => ({ id: account.id, name: account.name }))}
+          instruments={instruments.map((instrument) => ({
+            id: instrument.id,
+            name: instrument.name,
+            assetType: instrument.assetType as AssetType,
+            currency: instrument.currency,
+          }))}
+        />
+      )}
+
+      {instruments.length === 0 ? null : <AccountsHint />}
+
+      {/*
+       * Le formulaire d'instrument est rendu **au même endroit** dans les deux
+       * cas, et jamais démonté.
+       *
+       * Le placer dans une branche conditionnelle le détruisait à la création
+       * du premier instrument : la page passait d'une disposition à l'autre,
+       * un nouveau formulaire vide le remplaçait, et le message de
+       * confirmation disparaissait avec l'ancien. L'utilisateur voyait sa
+       * saisie s'effacer sans savoir si elle avait abouti.
+       */}
+      <div className="mt-6">
+        <InstrumentForm />
+      </div>
     </>
   );
 }

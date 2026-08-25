@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vitest/config";
 
 /**
@@ -9,6 +11,31 @@ import { defineConfig } from "vitest/config";
  *   ou parleront à PostgreSQL. Aucun appel à une API fournisseur payante, dans
  *   aucun des deux projets.
  */
+
+/**
+ * Alias `@/` de l'application web, repris de son `tsconfig.json`.
+ *
+ * Sans lui, tout module important par `@/` était intestable : le fichier se
+ * compilait et se déployait, mais aucune suite ne pouvait le charger. Les rares
+ * tests du dossier `apps/web` contournaient la difficulté par des imports
+ * relatifs — ce qui excluait de fait les routes et les composants, c'est-à-dire
+ * précisément le code qui parle au réseau et à la session.
+ */
+const WEB_ALIAS = {
+  "@/": `${fileURLToPath(new URL("./apps/web/src", import.meta.url))}/`,
+  /*
+   * `server-only` est un marqueur qui **lève** dès qu'il est chargé hors d'un
+   * contexte serveur. Le paquet publie pour cela deux fichiers et choisit entre
+   * eux par la condition d'export `react-server`, que Vitest ne pose pas.
+   *
+   * Le résoudre vers `empty.js` — exactement ce que reçoit un composant serveur
+   * — permet de tester les routes sans affaiblir la garantie : la frontière est
+   * toujours appliquée par Next au moment du bundle, qui reste seul juge de ce
+   * qui part au navigateur.
+   */
+  "server-only": fileURLToPath(new URL("./tests/helpers/server-only-stub.ts", import.meta.url)),
+};
+
 export default defineConfig({
   test: {
     projects: [
@@ -28,6 +55,7 @@ export default defineConfig({
           ],
           environment: "node",
         },
+        resolve: { alias: WEB_ALIAS },
       },
       {
         test: {
@@ -39,6 +67,7 @@ export default defineConfig({
           ],
           environment: "node",
         },
+        resolve: { alias: WEB_ALIAS },
       },
     ],
     // Horloge et fuseau déterministes : les tests financiers ne doivent jamais

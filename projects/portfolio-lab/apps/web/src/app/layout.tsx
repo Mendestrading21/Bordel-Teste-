@@ -78,7 +78,7 @@ export default function RootLayout({
           Aller au contenu principal
         </a>
         <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col">
-          <main id="contenu-principal" className="flex-1 px-4 pt-6 pb-4">
+          <main id="contenu-principal" className="pl-safe-area flex-1 pb-4">
             <OfflineNotice renderedAt={renderedAt} />
             {children}
           </main>

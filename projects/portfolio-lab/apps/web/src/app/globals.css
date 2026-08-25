@@ -62,13 +62,48 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /*
+   * Zones sûres de l'appareil, exposées comme variables.
+   *
+   * Passer par des variables plutôt que d'appeler `env()` sur chaque règle a
+   * deux raisons. La première est la lisibilité. La seconde est qu'elles sont
+   * **redéfinissables** : un parcours automatisé peut simuler un iPhone à
+   * encoche en leur donnant une valeur, ce qu'aucun navigateur de test ne
+   * permet de faire avec `env()` directement. Sans cela, la mise en page en
+   * mode installé n'est vérifiable qu'à la main, sur un vrai téléphone.
+   */
+  :root {
+    --pl-safe-top: env(safe-area-inset-top, 0px);
+    --pl-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --pl-safe-left: env(safe-area-inset-left, 0px);
+    --pl-safe-right: env(safe-area-inset-right, 0px);
+  }
+
   body {
     background-color: var(--pl-background-canvas);
     color: var(--pl-text-primary);
     font-family: var(--pl-font-sans);
     /* Réserve la hauteur de la barre de navigation basse et du safe-area iOS. */
-    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: calc(64px + var(--pl-safe-bottom));
     -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * Décalage du contenu sous la barre d'état, en mode installé.
+   *
+   * `apple-mobile-web-app-status-bar-style: black-translucent` et
+   * `viewport-fit=cover` placent la vue **sous** l'heure et l'îlot dynamique.
+   * Un padding fixe de 24 px laissait donc la première ligne de chaque écran
+   * dessous, illisible — un défaut invisible au navigateur, puisqu'il n'existe
+   * qu'une fois l'application ajoutée à l'écran d'accueil.
+   *
+   * Les marges latérales comptent aussi : en paysage, les coins arrondis et la
+   * caméra rognent les bords.
+   */
+  .pl-safe-area {
+    padding-top: calc(var(--pl-space-6, 1.5rem) + var(--pl-safe-top));
+    padding-left: calc(1rem + var(--pl-safe-left));
+    padding-right: calc(1rem + var(--pl-safe-right));
   }
 
   /* Les chiffres financiers gardent une chasse fixe pour rester alignés. */

@@ -1,6 +1,8 @@
-import type { AssetType } from "@portfolio-lab/domain";
+import { toDecimalString, type AssetType, type CurrencyCode } from "@portfolio-lab/domain";
 
+import type { OptionChain } from "./option-chain.js";
 import type {
+  FxQuote,
   HistoryRequest,
   InstrumentCandidate,
   InstrumentReference,
@@ -13,8 +15,28 @@ import type {
 } from "./contract";
 import { ProviderError } from "./contract";
 
-export type ProviderRequirement =
-  "search" | "resolve" | "snapshot" | "history" | "stream" | "optionChain" | "fx";
+/**
+ * Besoins que le routeur sait satisfaire.
+ *
+ * Déclarés comme **valeur** et non seulement comme type : une union TypeScript
+ * disparaît à la compilation, et rien ne pouvait donc vérifier que chaque
+ * besoin possède un point d'entrée. C'est exactement ainsi que `fx` a vécu
+ * longtemps sans méthode `fxRate()` — le routeur savait choisir un fournisseur
+ * de taux, mais personne ne pouvait lui en demander un.
+ *
+ * `reachability.test.ts` parcourt cette liste et refuse un besoin sans méthode.
+ */
+export const PROVIDER_REQUIREMENTS = [
+  "search",
+  "resolve",
+  "snapshot",
+  "history",
+  "stream",
+  "optionChain",
+  "fx",
+] as const;
+
+export type ProviderRequirement = (typeof PROVIDER_REQUIREMENTS)[number];
 
 export type ProviderPolicy = {
   readonly providerId: string;
@@ -110,7 +132,12 @@ export class ProviderRouter {
         if (!capabilities.streaming) return "pas de flux temps réel";
         return provider.subscribe === undefined ? "aucune implémentation de flux" : null;
       case "optionChain":
-        return capabilities.optionChains ? null : "pas de chaîne d'options";
+        if (!capabilities.optionChains) return "pas de chaîne d'options";
+        // Le drapeau ne suffit pas : sans méthode, le fournisseur serait choisi
+        // puis échouerait à chaque appel.
+        return provider.getOptionChain === undefined
+          ? "aucune implémentation de chaîne d'options"
+          : null;
       case "fx":
         if (!capabilities.fx) return "pas de FX";
         return provider.getFxRate === undefined ? "aucune implémentation FX" : null;
@@ -309,6 +336,84 @@ export class ProviderRouter {
       { assetType: instrument.assetType, exchangeMic: instrument.exchangeMic },
       (provider) => provider.getSnapshot(instrument),
     ).then(({ value, trace }) => ({ quote: value, trace }));
+  }
+
+  /**
+   * Taux de change vers une devise de consolidation.
+   *
+   * Le routeur savait déjà **choisir** un fournisseur capable de FX — la
+   * capacité `fx` et la vérification de `getFxRate` existaient — mais aucune
+   * méthode ne permettait d'en obtenir un taux. La sélection était donc du code
+   * inatteignable, et toute valorisation multidevise retombait sur des taux de
+   * fixture.
+   *
+   * Une conversion d'une devise vers elle-même n'interroge personne : elle vaut
+   * exactement 1. Demander `CHF/CHF` à un fournisseur introduirait un arrondi
+   * parasite et pourrait marquer le taux périmé sans raison.
+   */
+  fxRate(
+    base: CurrencyCode,
+    quote: CurrencyCode,
+  ): Promise<{ fx: FxQuote; trace: RouterTrace }> {
+    if (base === quote) {
+      return Promise.resolve({
+        fx: {
+          base,
+          quote,
+          rate: toDecimalString("1"),
+          provider: "identity",
+          asOf: new Date(0).toISOString(),
+          /*
+           * `MANUAL`, et non `LIVE`.
+           *
+           * Un taux d'une devise vers elle-même vaut exactement 1, mais aucun
+           * fournisseur ne l'a coté : le revendiquer temps réel serait
+           * précisément la promotion de fraîcheur que ce produit interdit.
+           * C'est le choix déjà fait par l'adaptateur EODHD pour le même cas,
+           * et deux réponses différentes à la même question finiraient par se
+           * contredire à l'écran.
+           *
+           * Cette valeur ne dégrade rien : le moteur de valorisation résout
+           * l'identité avant de consulter la table (`resolveFx` court-circuite
+           * `from === to`), et ne lit donc jamais cette fraîcheur.
+           */
+          freshness: "MANUAL",
+        },
+        trace: {
+          requirement: "fx",
+          attemptedProviders: [],
+          servedBy: "identity",
+          failures: [],
+          skipped: [],
+        },
+      });
+    }
+
+    return this.firstSuccess("fx", {}, async (provider) => {
+      if (provider.getFxRate === undefined) {
+        throw new ProviderError("UNSUPPORTED", provider.id, "Pas de FX");
+      }
+      return provider.getFxRate(base, quote);
+    }).then(({ value, trace }) => ({ fx: value, trace }));
+  }
+
+  /**
+   * Chaîne d'options d'un sous-jacent.
+   *
+   * Le besoin `optionChain` était routable — la capacité était vérifiée, le
+   * message « pas de chaîne d'options » existait — mais aucune méthode ne
+   * permettait d'en obtenir une. Le drapeau était donc invérifiable de bout en
+   * bout : un fournisseur pouvait l'annoncer sans rien pouvoir servir.
+   */
+  optionChain(
+    underlyingSymbol: string,
+  ): Promise<{ chain: OptionChain; trace: RouterTrace }> {
+    return this.firstSuccess("optionChain", { assetType: "OPTION" }, async (provider) => {
+      if (provider.getOptionChain === undefined) {
+        throw new ProviderError("UNSUPPORTED", provider.id, "Pas de chaîne d'options");
+      }
+      return provider.getOptionChain(underlyingSymbol);
+    }).then(({ value, trace }) => ({ chain: value, trace }));
   }
 
   history(request: HistoryRequest): Promise<{ bars: readonly PriceBar[]; trace: RouterTrace }> {

@@ -10,6 +10,7 @@ import { Money, Quantity, Unavailable } from "@/components/money";
 import { PageHeader } from "@/components/page-header";
 import { Card, Stat } from "@/components/ui";
 import { listFunds, type FundView } from "@/lib/data/funds";
+import { requireOwner } from "@/lib/auth/owner";
 import { loadPortfolioView } from "@/lib/data/portfolio";
 
 export const metadata: Metadata = { title: "Fonds" };
@@ -197,6 +198,7 @@ function FundCard({
 }
 
 export default async function FondsPage(): Promise<React.JSX.Element> {
+  await requireOwner();
   const [view, funds] = await Promise.all([loadPortfolioView(), listFunds()]);
 
   /*

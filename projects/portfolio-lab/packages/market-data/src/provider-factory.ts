@@ -1,6 +1,7 @@
 import { createCoinGeckoProvider } from "./coingecko-provider.js";
 import type { MarketDataProvider } from "./contract.js";
 import { createEodhdProvider } from "./eodhd-provider.js";
+import { createFinnhubProvider } from "./finnhub-provider.js";
 import { createMassiveProvider } from "./massive-provider.js";
 import { readLiveProviderConfig, validateLiveProviderConfig } from "./live-provider-config.js";
 import { createTwelveDataProvider } from "./twelve-data-provider.js";
@@ -104,6 +105,35 @@ export function createConfiguredProviders(
       );
     } else if (mode === "live" && coinGeckoKey !== undefined) {
       providers.push(createCoinGeckoProvider({ mode: "live", apiKey: coinGeckoKey, timeoutMs }));
+    }
+  }
+
+  if (config.providers["finnhub"]?.enabled) {
+    const apiKey = env["FINNHUB_API_KEY"];
+    if (apiKey === undefined || apiKey.trim() === "") {
+      /*
+       * Finnhub n'expose aucun mode démo : la clé gratuite doit être créée par
+       * son porteur. Sans clé, il n'y a rien à instancier, et le dire vaut
+       * mieux qu'un fournisseur absent de la liste — que rien ne distinguerait
+       * d'un oubli de configuration.
+       */
+      issues.push("finnhub: activé sans FINNHUB_API_KEY, et aucun mode démo n'existe");
+    } else {
+      /*
+       * Le plan vient de la configuration, jamais de la présence d'une clé :
+       * une clé gratuite et une clé payante se ressemblent trait pour trait, et
+       * en déduire « temps réel » afficherait « en direct » sur du différé.
+       */
+      const plan = env["FINNHUB_PLAN"] === "paid" ? "paid" : "free";
+      const declaredDelay = Number(env["FINNHUB_DELAY_MINUTES"]);
+      providers.push(
+        createFinnhubProvider({
+          apiKey,
+          plan,
+          timeoutMs,
+          delayMinutes: Number.isFinite(declaredDelay) && declaredDelay > 0 ? declaredDelay : null,
+        }),
+      );
     }
   }
 

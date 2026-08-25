@@ -5,6 +5,8 @@ import {
   type DecimalString,
 } from "@portfolio-lab/domain";
 
+import { DEMO_OPTION_CHAIN, DEMO_UNDERLYING } from "./demo-chain.js";
+import type { OptionChain } from "./option-chain.js";
 import {
   ProviderError,
   type FxQuote,
@@ -303,6 +305,27 @@ export function createMockProvider(options: MockProviderOptions): MarketDataProv
         asOf: now().toISOString(),
         freshness: "MANUAL",
       };
+    },
+
+    /**
+     * Chaîne d'options simulée.
+     *
+     * Sert la chaîne de démonstration, qui couvre volontairement les trois cas
+     * que la valorisation doit distinguer : contrat liquide, contrat illiquide
+     * à fourchette aberrante, et contrat expiré. Un sous-jacent inconnu échoue
+     * plutôt que de rendre une chaîne vide, qu'on ne distinguerait pas d'un
+     * sous-jacent sans options cotées.
+     */
+    async getOptionChain(underlyingSymbol: string): Promise<OptionChain> {
+      assertHealthy();
+      if (underlyingSymbol.toUpperCase() !== DEMO_UNDERLYING) {
+        throw new ProviderError(
+          "NOT_FOUND",
+          MOCK_PROVIDER_ID,
+          `Aucune chaîne simulée pour ${underlyingSymbol}`,
+        );
+      }
+      return DEMO_OPTION_CHAIN;
     },
 
     async subscribe(

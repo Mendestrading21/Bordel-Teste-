@@ -18,11 +18,17 @@ import { providerDecimal } from "./provider-decimal.js";
  * jamais coté — sans erreur. Le choix du canal fait donc partie de la
  * correction, pas de la configuration.
  *
- * ⚠️ Le format de fil décrit ici suit la documentation publique d'EODHD. Il
+ * ⚠️ Le format de fil décrit ici suit la documentation officielle d'EODHD. Il
  * n'a **pas** pu être confronté à une vraie connexion depuis cet environnement,
  * dont la politique de sortie réseau refuse `eodhd.com`. Le parseur est isolé
  * et testé sur fixtures précisément pour que cette confrontation, le jour où
  * elle sera possible, ne demande de corriger qu'un seul endroit.
+ *
+ * Cette isolation a déjà servi : les quatre canaux n'emploient **pas** les
+ * mêmes noms de champs pour une fourchette — `us-quote` publie `ap`/`bp`,
+ * `forex` publie `a`/`b`. Le parseur ne connaissait que la seconde forme et
+ * renvoyait donc `null` pour chaque message de `us-quote` : un abonnement
+ * accepté qui ne cotait jamais, indiscernable d'un marché sans transaction.
  */
 export const EODHD_CHANNELS = ["us", "us-quote", "forex", "crypto"] as const;
 
@@ -85,16 +91,91 @@ export function eodhdSubscription(
   action: "subscribe" | "unsubscribe",
   symbols: readonly string[],
 ): EodhdSubscribeMessage {
+  /*
+   * Le plafond est vérifié à la construction, pas espéré.
+   *
+   * EODHD n'échoue pas au-delà de cinquante symboles : il accepte l'abonnement
+   * et n'en cote qu'une partie. Le silence porterait alors sur les lignes
+   * situées après la cinquantième, sans que rien ne le signale.
+   */
+  if (action === "subscribe" && symbols.length > EODHD_MAX_SYMBOLS_PER_CONNECTION) {
+    throw new ProviderError(
+      "UNSUPPORTED",
+      EODHD_PROVIDER_ID,
+      `Abonnement de ${symbols.length} symboles au-delà du plafond de ` +
+        `${EODHD_MAX_SYMBOLS_PER_CONNECTION} par connexion`,
+    );
+  }
   return { action, symbols: symbols.join(",") };
 }
 
+/**
+ * Message de fil, tous canaux confondus.
+ *
+ * Les quatre canaux ne partagent que `s` et `t`. Le reste diffère, et deux
+ * champs portent le même sens sous des noms différents selon le canal : d'où
+ * la table `CHANNEL_FIELDS` plutôt qu'une lecture opportuniste de tout ce qui
+ * ressemble à un prix.
+ */
 type RawTick = {
   s?: unknown;
+  /** Prix de transaction — `us` (nombre) et `crypto` (chaîne). */
   p?: unknown;
+  /** Fourchette du canal `forex`. */
   a?: unknown;
   b?: unknown;
+  /** Fourchette du canal `us-quote`. */
+  ap?: unknown;
+  bp?: unknown;
+  /** Statut de marché du canal `us` : open | closed | extended-hours. */
+  ms?: unknown;
   t?: unknown;
 };
+
+/** Noms de champs de la fourchette, par canal. */
+const CHANNEL_FIELDS: Readonly<
+  Record<EodhdChannel, { readonly bid: keyof RawTick; readonly ask: keyof RawTick }>
+> = {
+  us: { bid: "bp", ask: "ap" },
+  "us-quote": { bid: "bp", ask: "ap" },
+  forex: { bid: "b", ask: "a" },
+  crypto: { bid: "b", ask: "a" },
+};
+
+/**
+ * Statut renvoyé par EODHD à la place des données.
+ *
+ * `422` signifie que l'abonnement a été **refusé** — typiquement un symbole
+ * hors des six autorisés par la clé de démonstration. Le message n'a pas la
+ * forme d'un tick : le traiter comme un message anodin laisserait un
+ * abonnement définitivement muet passer pour un marché calme.
+ */
+export type EodhdStatus = {
+  readonly statusCode: number;
+  readonly message: string;
+  /** `false` pour tout code hors 2xx : l'abonnement ne produira rien. */
+  readonly authorized: boolean;
+};
+
+export function parseEodhdStatus(raw: unknown): EodhdStatus | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const message = raw as { status_code?: unknown; message?: unknown };
+  if (typeof message.status_code !== "number") return null;
+  return {
+    statusCode: message.status_code,
+    message: typeof message.message === "string" ? message.message : "",
+    authorized: message.status_code >= 200 && message.status_code < 300,
+  };
+}
+
+/**
+ * Nombre de symboles qu'une connexion accepte par défaut.
+ *
+ * Documenté par EODHD, relevable depuis le tableau de bord moyennant
+ * supplément. Dépasser ce plafond ne produit pas d'erreur : les symboles
+ * excédentaires ne cotent simplement jamais.
+ */
+export const EODHD_MAX_SYMBOLS_PER_CONNECTION = 50;
 
 /**
  * Horodatage EODHD vers ISO 8601.
@@ -143,9 +224,13 @@ export function parseEodhdTick(raw: unknown, context: EodhdTickContext): Normali
    * calculé ici, mais le type de prix le dit explicitement pour que rien en
    * aval ne le confonde avec un dernier échange.
    */
+  const fields = CHANNEL_FIELDS[context.channel];
+  const rawBid = tick[fields.bid];
+  const rawAsk = tick[fields.ask];
+
   const hasTrade = tick.p !== undefined && tick.p !== null;
   const hasQuote =
-    tick.a !== undefined && tick.a !== null && tick.b !== undefined && tick.b !== null;
+    rawAsk !== undefined && rawAsk !== null && rawBid !== undefined && rawBid !== null;
   if (!hasTrade && !hasQuote) return null;
 
   const timestamp = typeof tick.t === "number" ? tick.t : Number(tick.t);
@@ -157,8 +242,8 @@ export function parseEodhdTick(raw: unknown, context: EodhdTickContext): Normali
     );
   }
 
-  const bid = hasQuote ? providerDecimal(tick.b, EODHD_PROVIDER_ID, "bid") : undefined;
-  const ask = hasQuote ? providerDecimal(tick.a, EODHD_PROVIDER_ID, "ask") : undefined;
+  const bid = hasQuote ? providerDecimal(rawBid, EODHD_PROVIDER_ID, "bid") : undefined;
+  const ask = hasQuote ? providerDecimal(rawAsk, EODHD_PROVIDER_ID, "ask") : undefined;
 
   const price = hasTrade ? providerDecimal(tick.p, EODHD_PROVIDER_ID, "price") : midpoint(bid, ask);
 
@@ -170,16 +255,32 @@ export function parseEodhdTick(raw: unknown, context: EodhdTickContext): Normali
     price,
     priceType: hasTrade ? "LAST_TRADE" : "MID",
     /*
-     * `LIVE` n'est revendiqué que pour les canaux qu'EODHD documente comme
-     * temps réel, et seulement parce que l'horodatage vient du fournisseur.
-     * Aucune promotion : un canal absent de cette liste garderait `DELAYED`.
+     * La fraîcheur suit le statut de marché **annoncé par le fournisseur**,
+     * jamais le seul fait d'être arrivé par un flux.
+     *
+     * Le canal `us` publie `ms` : open, closed ou extended-hours. Une
+     * impression tardive reçue marché fermé n'est pas un cours en direct, et
+     * l'étiqueter `LIVE` parce qu'elle vient d'une socket serait exactement la
+     * promotion que tout l'étage de fraîcheur existe pour empêcher.
      */
-    freshness: "LIVE",
+    freshness: freshnessFor(tick.ms),
     asOf: isoFromEpoch(timestamp),
     receivedAt: context.receivedAt,
     ...(bid === undefined ? {} : { bid }),
     ...(ask === undefined ? {} : { ask }),
   };
+}
+
+/**
+ * Fraîcheur déduite du statut de marché.
+ *
+ * `undefined` — le cas des canaux `forex`, `crypto` et `us-quote`, qui ne
+ * publient pas `ms` — vaut `LIVE` : ces marchés n'ont pas d'heure de
+ * fermeture, ou la cotation n'a de sens que marché ouvert.
+ */
+function freshnessFor(marketStatus: unknown): NormalizedQuote["freshness"] {
+  if (marketStatus === "closed") return "EOD";
+  return "LIVE";
 }
 
 /**

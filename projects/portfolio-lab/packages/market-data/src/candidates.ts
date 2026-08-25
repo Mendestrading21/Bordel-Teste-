@@ -1,4 +1,5 @@
 import { createCoinGeckoProvider } from "./coingecko-provider.js";
+import { createFinnhubProvider } from "./finnhub-provider.js";
 import type { ProviderCapabilities } from "./contract.js";
 import { createEodhdProvider } from "./eodhd-provider.js";
 import { createMassiveProvider } from "./massive-provider.js";
@@ -168,6 +169,95 @@ export const CANDIDATE_PROVIDERS: readonly ProviderRegistration[] = [
         apiKey === undefined ? { mode: "keyless" } : { mode: "demo", apiKey },
       );
     },
+  },
+  {
+    id: "finnhub",
+    label: "Finnhub",
+    capabilities: UNMEASURED_CAPABILITIES({
+      /*
+       * Actions et ETF américains seulement. Le plan gratuit ne sert ni les
+       * fonds de placement, ni les options, ni les places suisses et
+       * européennes en temps réel : les déclarer enverrait le routeur chez un
+       * fournisseur qui échouerait à chaque appel.
+       */
+      assetTypes: ["STOCK", "ETF"],
+      searchByText: true,
+      history: false,
+      streaming: false,
+      bestFreshness: "DELAYED",
+    }),
+    verification: "FIXTURE_TESTED",
+    blockedBy: BLOCKED_BY_ACCESS,
+    apiKeyEnvVar: "FINNHUB_API_KEY",
+    documentationUrl: "https://finnhub.io/docs/api",
+    create: (env) => {
+      const apiKey = env["FINNHUB_API_KEY"];
+      if (apiKey === undefined || apiKey.trim() === "") return null;
+      /*
+       * Le plan vient de la configuration, jamais de la présence d'une clé :
+       * une clé gratuite et une clé payante se ressemblent trait pour trait,
+       * et en déduire « temps réel » afficherait « en direct » sur du différé.
+       */
+      const plan = env["FINNHUB_PLAN"] === "paid" ? "paid" : "free";
+      const declaredDelay = Number(env["FINNHUB_DELAY_MINUTES"]);
+      return createFinnhubProvider({
+        apiKey,
+        plan,
+        delayMinutes: Number.isFinite(declaredDelay) && declaredDelay > 0 ? declaredDelay : null,
+      });
+    },
+  },
+  {
+    id: "finra",
+    label: "FINRA TRACE",
+    capabilities: UNMEASURED_CAPABILITIES({
+      assetTypes: ["BOND"],
+      // TRACE publie des transactions déclarées, pas un flux ni un carnet.
+      bestFreshness: "EOD",
+    }),
+    verification: "FIXTURE_TESTED",
+    blockedBy:
+      "Le module finra-trace sait normaliser une transaction TRACE et en déduire " +
+      "une fraîcheur, mais il n'existe ni client HTTP ni entrée de routeur pour " +
+      "aller la chercher : ce sont des fonctions, pas un fournisseur. " +
+      NOT_IMPLEMENTED,
+    apiKeyEnvVar: "FINRA_API_KEY",
+    documentationUrl: "https://www.finra.org/finra-data/browse-catalog/fixed-income",
+    create: () => null,
+  },
+  {
+    id: "alphavantage",
+    label: "Alpha Vantage",
+    capabilities: UNMEASURED_CAPABILITIES({
+      assetTypes: ["STOCK", "ETF"],
+      searchByText: true,
+      fx: true,
+      history: true,
+    }),
+    verification: "UNVERIFIED",
+    blockedBy: NOT_IMPLEMENTED,
+    apiKeyEnvVar: "ALPHAVANTAGE_API_KEY",
+    documentationUrl: "https://www.alphavantage.co/documentation/",
+    create: () => null,
+  },
+  {
+    id: "factset",
+    label: "FactSet",
+    capabilities: UNMEASURED_CAPABILITIES({
+      assetTypes: ["STOCK", "ETF", "MUTUAL_FUND", "OPTION", "BOND"],
+      searchByText: true,
+      searchByIsin: true,
+      optionChains: true,
+      fx: true,
+      history: true,
+    }),
+    verification: "UNVERIFIED",
+    blockedBy:
+      "Offre institutionnelle : l'accès se négocie, il ne s'obtient pas par " +
+      "inscription. " + NOT_IMPLEMENTED,
+    apiKeyEnvVar: "FACTSET_API_KEY",
+    documentationUrl: "https://developer.factset.com/",
+    create: () => null,
   },
   {
     id: "openfigi",

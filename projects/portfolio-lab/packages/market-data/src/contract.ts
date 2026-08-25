@@ -1,3 +1,4 @@
+import type { OptionChain } from "./option-chain.js";
 import type {
   AssetType,
   CurrencyCode,
@@ -199,6 +200,16 @@ export interface MarketDataProvider {
   getSnapshot(instrument: ResolvedInstrument): Promise<NormalizedQuote>;
   getHistory(request: HistoryRequest): Promise<readonly PriceBar[]>;
   getFxRate?(base: CurrencyCode, quote: CurrencyCode): Promise<FxQuote>;
+  /**
+   * Chaîne d'options d'un sous-jacent.
+   *
+   * Facultative, et c'est ce qui donne son sens à la capacité `optionChains` :
+   * celle-ci n'existait que comme drapeau, sans méthode nulle part. Un
+   * fournisseur pouvait donc l'annoncer, être choisi par le routeur pour une
+   * chaîne, et n'avoir aucun moyen d'en servir une. Le drapeau et la méthode
+   * doivent désormais aller ensemble — une suite de conformité le vérifie.
+   */
+  getOptionChain?(underlyingSymbol: string): Promise<OptionChain>;
   subscribe?(
     instruments: readonly ResolvedInstrument[],
     onQuote: (quote: NormalizedQuote) => void,

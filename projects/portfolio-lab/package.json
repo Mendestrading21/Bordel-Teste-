@@ -25,7 +25,8 @@
     "demo": "tsx scripts/setup.mts --demo",
     "icons": "node scripts/generate-icons.mjs",
     "coverage:matrix": "tsx scripts/coverage-matrix.mts",
-    "market:smoke": "tsx scripts/market-data-smoke.mts"
+    "market:smoke": "tsx scripts/market-data-smoke.mts",
+    "creer-acces": "tsx scripts/creer-acces.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
@@ -35,6 +36,7 @@
     "@portfolio-lab/domain": "workspace:*",
     "@portfolio-lab/market-data": "workspace:*",
     "@portfolio-lab/portfolio-engine": "workspace:*",
+    "@portfolio-lab/security": "workspace:*",
     "@portfolio-lab/ui": "workspace:*",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.23.1",

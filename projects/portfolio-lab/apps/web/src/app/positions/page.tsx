@@ -7,11 +7,13 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { PositionsList, type PositionRow } from "@/components/positions-list";
 import { loadPortfolioView } from "@/lib/data/portfolio";
+import { requireOwner } from "@/lib/auth/owner";
 
 export const metadata: Metadata = { title: "Positions" };
 export const dynamic = "force-dynamic";
 
 export default async function PositionsPage(): Promise<React.JSX.Element> {
+  await requireOwner();
   const view = await loadPortfolioView();
   const { valuation } = view;
 
@@ -51,6 +53,7 @@ export default async function PositionsPage(): Promise<React.JSX.Element> {
     if (value === undefined) {
       return {
         positionId: position.positionId,
+        instrumentId: position.instrumentId,
         instrumentName: position.instrumentName,
         symbol: position.shortName,
         assetType: position.assetType as AssetType,
@@ -72,6 +75,7 @@ export default async function PositionsPage(): Promise<React.JSX.Element> {
 
     return {
       positionId: position.positionId,
+      instrumentId: position.instrumentId,
       instrumentName: position.instrumentName,
       symbol: position.shortName,
       assetType: position.assetType as AssetType,

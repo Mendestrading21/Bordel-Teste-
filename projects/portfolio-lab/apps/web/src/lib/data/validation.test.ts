@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createAccountSchema, createPositionSchema, toFieldErrors } from "./validation";
+import { createAccountSchema, createInstrumentSchema, createPositionSchema, toFieldErrors } from "./validation";
 
 const validPosition = {
   accountId: "11111111-1111-4111-8111-111111111111",
@@ -127,5 +127,109 @@ describe("toFieldErrors", () => {
       const fields = toFieldErrors(result.error);
       expect(Object.values(fields).every((message) => typeof message === "string")).toBe(true);
     }
+  });
+});
+
+describe("createInstrumentSchema", () => {
+  const base = { name: "Apple Inc", assetType: "STOCK", currency: "USD" };
+
+  it("accepte un instrument sans identifiant", () => {
+    const result = createInstrumentSchema.safeParse(base);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte un ticker avec sa place", () => {
+    const result = createInstrumentSchema.safeParse({
+      ...base,
+      exchangeMic: "xnas",
+      identifierType: "TICKER",
+      identifierValue: "AAPL",
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("saisie attendue valide");
+    // Le code de place est normalisé : « xnas » et « XNAS » sont la même place.
+    expect(result.data.exchangeMic).toBe("XNAS");
+  });
+
+  /*
+   * Un type sans valeur, ou une valeur sans type, produirait une ligne
+   * d'identifiant inutilisable : l'instrument paraîtrait coté automatiquement
+   * et resterait muet. Mieux vaut un instrument franchement manuel.
+   */
+  it("refuse un identifiant à moitié rempli", () => {
+    const sansValeur = createInstrumentSchema.safeParse({ ...base, identifierType: "TICKER" });
+    expect(sansValeur.success).toBe(false);
+
+    const sansType = createInstrumentSchema.safeParse({ ...base, identifierValue: "AAPL" });
+    expect(sansType.success).toBe(false);
+  });
+
+  /*
+   * Un ISIN mal formé serait envoyé tel quel au fournisseur et pourrait
+   * résoudre un autre titre — la base le refuse aussi, mais bien plus tard et
+   * par un message incompréhensible.
+   */
+  it("refuse un ISIN mal formé", () => {
+    const result = createInstrumentSchema.safeParse({
+      ...base,
+      identifierType: "ISIN",
+      identifierValue: "PAS-UN-ISIN",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepte un ISIN valide", () => {
+    const result = createInstrumentSchema.safeParse({
+      ...base,
+      identifierType: "ISIN",
+      identifierValue: "US0378331005",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  /*
+   * Un symbole propriétaire n'existe que dans le référentiel de celui qui l'a
+   * émis : sans son nom, il ne désigne rien.
+   */
+  it("exige le nom du fournisseur pour un symbole propriétaire", () => {
+    const sans = createInstrumentSchema.safeParse({
+      ...base,
+      identifierType: "PROVIDER_SYMBOL",
+      identifierValue: "AAPL.US",
+    });
+    expect(sans.success).toBe(false);
+
+    const avec = createInstrumentSchema.safeParse({
+      ...base,
+      identifierType: "PROVIDER_SYMBOL",
+      identifierValue: "AAPL.US",
+      identifierProvider: "eodhd",
+    });
+    expect(avec.success).toBe(true);
+  });
+
+  /*
+   * L'alphabet est celui du périmètre du jeton temps réel. Un symbole qui en
+   * sortirait serait accepté ici puis silencieusement écarté du canal, et la
+   * ligne ne serait jamais cotée sans que rien ne le dise.
+   */
+  it("refuse un symbole hors de l'alphabet du canal temps réel", () => {
+    for (const bad of ["AAPL,TSLA", "AA PL", "AAPL/US"]) {
+      const result = createInstrumentSchema.safeParse({
+        ...base,
+        identifierType: "TICKER",
+        identifierValue: bad,
+      });
+      expect(result.success, `« ${bad} » devrait être refusé`).toBe(false);
+    }
+  });
+
+  it("refuse un code de place qui n'a pas quatre caractères", () => {
+    const result = createInstrumentSchema.safeParse({ ...base, exchangeMic: "XNA" });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse un nom vide", () => {
+    expect(createInstrumentSchema.safeParse({ ...base, name: "   " }).success).toBe(false);
   });
 });

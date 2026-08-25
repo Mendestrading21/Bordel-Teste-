@@ -3,6 +3,8 @@ import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { resolveDataMode } from "@/lib/data/mode";
+import { currentUserId } from "@/lib/auth/owner";
+import { portfolioSubscriptionScope } from "@/lib/live/quote-service";
 import { liveTokenLimiter, logger, retryAfterSeconds } from "@/lib/security/limits";
 
 /**
@@ -26,7 +28,7 @@ const TOKEN_TTL_MS = 5 * 60_000;
 
 export async function POST(): Promise<NextResponse> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
 
   if (userId === null) {
     return NextResponse.json(
@@ -78,12 +80,32 @@ export async function POST(): Promise<NextResponse> {
     );
   }
 
+  /*
+   * Le périmètre est dérivé du portefeuille, jamais reçu du client.
+   *
+   * Le jeton prouvait jusqu'ici *qui* était l'appelant, sans limiter *ce à quoi*
+   * il pouvait s'abonner. Un utilisateur authentifié pouvait donc demander
+   * n'importe quel symbole à la passerelle et s'en servir comme d'un relais de
+   * données de marché, sur la clé d'API de l'exploitant. La route de
+   * rafraîchissement refusait déjà toute liste d'identifiants venant du
+   * navigateur ; le canal temps réel tient désormais la même ligne.
+   */
+  const scope = await portfolioSubscriptionScope();
+
   const expiresAt = Date.now() + TOKEN_TTL_MS;
-  const payload = `${userId}.${expiresAt}`;
+  // Trié : un même périmètre doit produire le même jeton, sans quoi tout
+  // diagnostic devient inutilement pénible.
+  const encodedScope = Buffer.from([...scope].sort().join(","), "utf8").toString("base64url");
+  const payload = `${userId}.${expiresAt}.${encodedScope}`;
   const signature = createHmac("sha256", secret).update(payload).digest("base64url");
 
   return NextResponse.json(
-    { token: `${payload}.${signature}`, expiresAt },
+    /*
+     * Le périmètre est **renvoyé au client**, en clair, en plus d'être scellé
+     * dans le jeton. Sans cela le navigateur devrait deviner à quoi s'abonner,
+     * et se ferait refuser sa demande sans comprendre pourquoi.
+     */
+    { token: `${payload}.${signature}`, expiresAt, scope: [...scope].sort() },
     { headers: { "cache-control": "no-store" } },
   );
 }

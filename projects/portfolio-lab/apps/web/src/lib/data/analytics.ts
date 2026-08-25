@@ -35,6 +35,7 @@ import {
 
 import { resolveDataMode } from "./mode";
 import type { PortfolioView } from "./portfolio";
+import { currentUserId } from "@/lib/auth/owner";
 
 /**
  * Lecture et écriture de l'historique du patrimoine.
@@ -153,7 +154,7 @@ export async function loadAnalytics(view: PortfolioView): Promise<AnalyticsView 
   }
 
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   const portfolioId = view.portfolio?.id ?? null;
 
   let history: readonly WealthPoint[] = [];
@@ -266,7 +267,7 @@ export async function recordSnapshot(
   now: Date,
 ): Promise<{ readonly recorded: boolean; readonly reason?: string }> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   const portfolio = view.portfolio;
 
   if (userId === null || portfolio === null) {

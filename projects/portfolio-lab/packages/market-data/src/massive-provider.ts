@@ -160,7 +160,16 @@ export function createMassiveProvider(options: MassiveProviderOptions): MarketDa
         assetTypes: ["STOCK", "ETF", "OPTION", "INDEX", "FUTURE"],
         searchByText: true,
         searchByIsin: false,
-        optionChains: true,
+        /*
+         * `false`, alors que Massive publie bien des chaînes d'options.
+         *
+         * Le drapeau décrit ce que **cet adaptateur** sait faire, pas ce que le
+         * fournisseur propose. Aucune méthode `getOptionChain` n'a été écrite
+         * ici : l'annoncer ferait choisir Massive par le routeur pour une
+         * chaîne, puis échouer à chaque appel — une lacune de couverture
+         * déguisée en panne intermittente.
+         */
+        optionChains: false,
         fx: false,
         history: true,
         // Le flux relève de LIVE-09 : l'annoncer ici promettrait un temps réel

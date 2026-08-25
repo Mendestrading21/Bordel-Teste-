@@ -3,31 +3,31 @@
 import { revalidatePath } from "next/cache";
 
 import {
-  accountRepository,
   ConflictError,
+  accountRepository,
   createDatabase,
   loadDatabaseConfig,
-  positionRepository,
   portfolioRepository,
+  positionRepository,
   type Database,
 } from "@portfolio-lab/database";
 import { toDecimalString, type CurrencyCode } from "@portfolio-lab/domain";
 
-import { deletionLimiter, logger, mutationLimiter } from "../security/limits";
-
 import { recordSnapshot } from "./analytics";
 import { deleteAllUserData } from "./export";
-import { resolveDataMode } from "./mode";
 import { loadPortfolioView } from "./portfolio";
 import {
   createAccountSchema,
+  createInstrumentSchema,
   createPositionSchema,
   deleteByIdSchema,
   deleteEverythingSchema,
-  updatePositionSchema,
   toFieldErrors,
+  updatePositionSchema,
   type ActionResult,
 } from "./validation";
+import { deletionLimiter, logger, mutationLimiter } from "../security/limits";
+import { currentUserId } from "@/lib/auth/owner";
 
 /**
  * Actions serveur du portefeuille.
@@ -45,16 +45,126 @@ function database(): Database {
   return cachedDatabase;
 }
 
-/** Identité de l'utilisateur courant, ou `null` si aucune n'est établie. */
-function currentUserId(): string | null {
-  const mode = resolveDataMode();
-  return mode.kind === "demo" ? mode.userId : null;
+/**
+ * Identité de l'utilisateur courant, ou `null` si aucune n'est établie.
+ *
+ * Réexportée sous un nom local pour que les actions ci-dessous restent
+ * lisibles, mais la résolution est **unique** et vit dans `@/lib/auth/owner` :
+ * treize copies de cette logique existaient auparavant, toutes limitées au mode
+ * démonstration, et l'application était vide partout ailleurs.
+ */
+async function callerId(): Promise<string | null> {
+  return currentUserId();
 }
 
 const NOT_AUTHENTICATED: ActionResult = {
   status: "error",
   message: "Aucune session active. Impossible de modifier les données.",
 };
+
+/**
+ * Valeur textuelle d'un champ, ou `undefined` s'il est absent.
+ *
+ * `FormData.get` renvoie `null` pour un champ qui n'existe pas dans le
+ * document — et les champs d'identifiant du formulaire d'instrument ne sont
+ * rendus que si un type est choisi. Un schéma `.optional()` reçoit alors
+ * `null` au lieu de `undefined` et rejette la saisie, avec un message qui parle
+ * de type et non de ce que l'utilisateur a fait.
+ */
+function text(formData: FormData, name: string): string | undefined {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : undefined;
+}
+
+/**
+ * Crée un instrument dans le référentiel local.
+ *
+ * Sans cette action, l'application était **inutilisable dès la première prise
+ * en main** : le sélecteur du formulaire d'ajout lit la table `instruments`,
+ * vide sur toute base neuve. L'utilisateur se connectait, cliquait
+ * « Ajouter », et trouvait une liste sans aucune entrée — sans qu'aucune
+ * erreur ne l'explique.
+ *
+ * L'identifiant est saisi dans la **même transaction** que l'instrument :
+ * séparer les deux laisserait, en cas d'échec du second appel, un instrument
+ * définitivement non cotable dont rien ne dirait pourquoi.
+ */
+export async function createInstrumentAction(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const userId = await callerId();
+  if (userId === null) {
+    return NOT_AUTHENTICATED;
+  }
+
+  const parsed = createInstrumentSchema.safeParse({
+    name: text(formData, "name"),
+    shortName: text(formData, "shortName"),
+    assetType: text(formData, "assetType"),
+    currency: text(formData, "currency"),
+    exchangeMic: text(formData, "exchangeMic"),
+    // Chaîne vide = « aucun identifiant », le choix par défaut du sélecteur.
+    identifierType: text(formData, "identifierType") || undefined,
+    identifierValue: text(formData, "identifierValue"),
+    identifierProvider: text(formData, "identifierProvider"),
+  });
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "L'instrument n'a pas pu être créé.",
+      fieldErrors: toFieldErrors(parsed.error),
+    };
+  }
+
+  const input = parsed.data;
+
+  try {
+    await database().withUser(userId, async (client) => {
+      const { rows } = await client.query<{ id: string }>(
+        `insert into instruments (asset_type, name, short_name, primary_currency, exchange_mic)
+         values ($1::asset_type, $2, $3, $4, $5)
+         returning id`,
+        [input.assetType, input.name, input.shortName, input.currency, input.exchangeMic],
+      );
+
+      const instrumentId = rows[0]?.id;
+      if (instrumentId === undefined) {
+        throw new ConflictError("L'instrument n'a pas pu être enregistré");
+      }
+
+      if (input.identifierType === undefined || input.identifierValue === null) return;
+
+      /*
+       * Un ISIN est normalisé en majuscules avant insertion : la contrainte de
+       * la base le valide sous cette forme, et un ISIN saisi en minuscules
+       * serait rejeté par une erreur qui ne dirait pas pourquoi.
+       */
+      const value =
+        input.identifierType === "ISIN"
+          ? input.identifierValue.toUpperCase()
+          : input.identifierValue;
+
+      await client.query(
+        `insert into instrument_identifiers
+           (instrument_id, identifier_type, identifier_value, provider, exchange_mic)
+         values ($1, $2::identifier_type, $3, $4, $5)`,
+        [instrumentId, input.identifierType, value, input.identifierProvider, input.exchangeMic],
+      );
+    });
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/ajouter");
+  return {
+    status: "success",
+    message:
+      input.identifierType === undefined
+        ? "Instrument créé. Sans identifiant, son cours restera en saisie manuelle."
+        : "Instrument créé. Son cours sera cherché au prochain rafraîchissement.",
+  };
+}
 
 /**
  * Traduit une erreur en message utilisateur.
@@ -76,7 +186,7 @@ export async function createAccountAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -121,7 +231,7 @@ export async function createPositionAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -182,7 +292,7 @@ export async function updatePositionAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -236,7 +346,7 @@ export async function deletePositionAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -269,7 +379,7 @@ export async function archiveAccountAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -312,7 +422,7 @@ export async function recordSnapshotAction(
   _previous: ActionResult,
   _formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -352,7 +462,7 @@ export async function deleteEverythingAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
