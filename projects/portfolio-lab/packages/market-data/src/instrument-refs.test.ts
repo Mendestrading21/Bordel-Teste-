@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildQuoteRequests, type IdentifierRow, type InstrumentRow } from "./instrument-refs.js";
+import {
+  buildQuoteRequests,
+  pickSubscriptionSymbols,
+  type IdentifierRow,
+  type InstrumentRow,
+} from "./instrument-refs.js";
 
 const instrument = (
   instrumentId: string,
@@ -136,5 +141,62 @@ describe("buildQuoteRequests", () => {
       expect(result.requests).toEqual([]);
       expect(result.unidentified[0]?.reason).toContain("OSI valide");
     });
+  });
+});
+
+describe("pickSubscriptionSymbols", () => {
+  it("retient un seul symbole par instrument", () => {
+    const picked = pickSubscriptionSymbols([
+      identifier("i1", "TICKER", "AAPL"),
+      identifier("i1", "ISIN", "US0378331005"),
+    ]);
+
+    // Deux abonnements pour un seul cours utile consommeraient deux places sur
+    // les cinquante qu'une connexion accepte.
+    expect(picked).toHaveLength(1);
+  });
+
+  it("suit la même préférence que les requêtes REST", () => {
+    const picked = pickSubscriptionSymbols([
+      identifier("i1", "TICKER", "AAPL"),
+      identifier("i1", "ISIN", "US0378331005"),
+      identifier("i1", "PROVIDER_SYMBOL", "AAPL.US", { provider: "eodhd" }),
+    ]);
+
+    /*
+     * Deux ordres différents feraient suivre un instrument sous un symbole par
+     * le flux et sous un autre par la scrutation, avec deux cours qui ne se
+     * recouvriraient pas toujours.
+     */
+    expect(picked[0]?.symbol).toBe("AAPL.US");
+  });
+
+  it("écarte un symbole fournisseur sans fournisseur nommé", () => {
+    const picked = pickSubscriptionSymbols([
+      identifier("i1", "PROVIDER_SYMBOL", "AAPL.US"),
+      identifier("i1", "TICKER", "AAPL"),
+    ]);
+    expect(picked[0]?.symbol).toBe("AAPL");
+  });
+
+  it("n'abonne pas une option par le symbole de son sous-jacent", () => {
+    const picked = pickSubscriptionSymbols([identifier("o1", "OSI", "AAPL  270115C00150000")]);
+    expect(picked).toEqual([]);
+  });
+
+  it("rend le même ordre à chaque appel", () => {
+    const rows = [identifier("b", "TICKER", "MSFT"), identifier("a", "TICKER", "AAPL")];
+    expect(pickSubscriptionSymbols(rows)).toEqual(pickSubscriptionSymbols([...rows].reverse()));
+  });
+
+  it("rattache chaque symbole à son instrument", () => {
+    const picked = pickSubscriptionSymbols([
+      identifier("i1", "TICKER", "AAPL"),
+      identifier("i2", "TICKER", "MSFT"),
+    ]);
+    expect(picked).toEqual([
+      { symbol: "AAPL", instrumentId: "i1" },
+      { symbol: "MSFT", instrumentId: "i2" },
+    ]);
   });
 });

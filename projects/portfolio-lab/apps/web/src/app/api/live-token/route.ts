@@ -90,7 +90,8 @@ export async function POST(): Promise<NextResponse> {
    * rafraîchissement refusait déjà toute liste d'identifiants venant du
    * navigateur ; le canal temps réel tient désormais la même ligne.
    */
-  const scope = await portfolioSubscriptionScope();
+  const subscriptions = await portfolioSubscriptionScope();
+  const scope = subscriptions.map((entry) => entry.symbol);
 
   const expiresAt = Date.now() + TOKEN_TTL_MS;
   // Trié : un même périmètre doit produire le même jeton, sans quoi tout
@@ -105,7 +106,15 @@ export async function POST(): Promise<NextResponse> {
      * dans le jeton. Sans cela le navigateur devrait deviner à quoi s'abonner,
      * et se ferait refuser sa demande sans comprendre pourquoi.
      */
-    { token: `${payload}.${signature}`, expiresAt, scope: [...scope].sort() },
+    /*
+     * Les abonnements sont renvoyés **avec l'instrument qu'ils désignent**.
+     *
+     * Le flux ne connaît que des symboles ; l'écran ne connaît que des
+     * identifiants d'instrument. Sans cette table, un cours reçu ne pourrait
+     * être rattaché à aucune ligne, et le canal resterait inutilisable même
+     * parfaitement fonctionnel.
+     */
+    { token: `${payload}.${signature}`, expiresAt, subscriptions },
     { headers: { "cache-control": "no-store" } },
   );
 }

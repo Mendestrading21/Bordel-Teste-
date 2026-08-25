@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import type { LiveQuote } from "./client-protocol";
 import {
   BASE_INTERVAL_MS,
   mergeQuotes,
+  mostRecent,
+  toDisplayQuote,
   nextDelayMs,
   shouldPoll,
+  type DisplayQuote,
   type LiveQuoteRecord,
   type RefreshState,
 } from "./refresh-policy";
@@ -101,5 +105,95 @@ describe("mergeQuotes", () => {
   it("n'altère pas la fraîcheur reçue", () => {
     const merged = mergeQuotes(new Map(), [quote("a", "100", { freshness: "EOD" })]);
     expect(merged.get("a")?.freshness).toBe("EOD");
+  });
+});
+
+describe("mostRecent", () => {
+  const q = (price: string, asOf: string, provider = "finnhub"): DisplayQuote => ({
+    price: price as unknown as DisplayQuote["price"],
+    currency: "USD",
+    freshness: "DELAYED",
+    asOf,
+    provider,
+  });
+
+  const T1 = "2026-08-25T06:00:00.000Z";
+  const T2 = "2026-08-25T06:05:00.000Z";
+
+  it("garde la scrutation quand aucun flux n'arrive", () => {
+    const polled = new Map([["a", q("100", T1)]]);
+    expect(mostRecent(polled, new Map())).toBe(polled);
+  });
+
+  it("préfère le cours du flux quand il est plus récent", () => {
+    const merged = mostRecent(new Map([["a", q("100", T1)]]), new Map([["a", q("101", T2)]]));
+    expect(merged.get("a")?.price).toBe("101");
+  });
+
+  /*
+   * Le point qui compte : le critère est la **date du cours**, jamais la
+   * source. Privilégier le flux par principe afficherait un tick d'il y a dix
+   * minutes par-dessus une scrutation de l'instant — un cours plus ancien
+   * présenté comme plus frais.
+   */
+  it("ne préfère pas un tick ancien à une scrutation récente", () => {
+    const merged = mostRecent(new Map([["a", q("101", T2)]]), new Map([["a", q("100", T1)]]));
+    expect(merged.get("a")?.price).toBe("101");
+  });
+
+  it("conserve la valeur affichée à date égale", () => {
+    const polled = new Map([["a", q("100", T1, "finnhub")]]);
+    const merged = mostRecent(polled, new Map([["a", q("100", T1, "eodhd")]]));
+    // Remplacer un cours par un autre identique ferait clignoter la ligne.
+    expect(merged.get("a")?.provider).toBe("finnhub");
+  });
+
+  it("ajoute un instrument que seule une source connaît", () => {
+    const merged = mostRecent(new Map([["a", q("100", T1)]]), new Map([["b", q("50", T1)]]));
+    expect(merged.size).toBe(2);
+    expect(merged.get("b")?.price).toBe("50");
+  });
+
+  it("n'altère pas la fraîcheur reçue", () => {
+    const streamed = new Map([["a", { ...q("101", T2), freshness: "LIVE" as const }]]);
+    expect(mostRecent(new Map(), streamed).get("a")?.freshness).toBe("LIVE");
+  });
+});
+
+describe("toDisplayQuote", () => {
+  const wire = (overrides: Partial<LiveQuote> = {}): LiveQuote =>
+    ({
+      instrumentId: "provider-AAPL",
+      provider: "eodhd",
+      providerSymbol: "AAPL",
+      currency: "USD",
+      price: "309.54",
+      priceType: "LAST_TRADE",
+      freshness: "LIVE",
+      asOf: "2026-08-25T06:41:30.000Z",
+      receivedAt: "2026-08-25T06:41:31.000Z",
+      ...overrides,
+    }) as LiveQuote;
+
+  it("convertit une cotation valide", () => {
+    const display = toDisplayQuote(wire());
+    expect(display?.price).toBe("309.54");
+    expect(display?.freshness).toBe("LIVE");
+  });
+
+  /*
+   * Les types du fil sont de simples chaînes ; ceux du domaine sont marqués, et
+   * ce marquage est ce qui empêche une chaîne arbitraire d'entrer dans un
+   * calcul de valorisation. Le convertir de force contournerait la seule
+   * barrière qui existe.
+   */
+  it("écarte un prix qui n'est pas une décimale exacte", () => {
+    for (const price of ["1e5", "n/a", "", "1,5"]) {
+      expect(toDisplayQuote(wire({ price })), `« ${price} » devrait être écarté`).toBeNull();
+    }
+  });
+
+  it("écarte une devise inconnue", () => {
+    expect(toDisplayQuote(wire({ currency: "XYZ" }))).toBeNull();
   });
 });

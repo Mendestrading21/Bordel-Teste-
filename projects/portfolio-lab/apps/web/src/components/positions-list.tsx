@@ -12,7 +12,10 @@ import {
 } from "@portfolio-lab/domain";
 import type { QuoteFreshness } from "@portfolio-lab/domain";
 
+import { LiveIndicator } from "./live-indicator";
 import { LiveRefreshStatus } from "./live-refresh-status";
+import { mostRecent, toDisplayQuote, type DisplayQuote } from "@/lib/live/refresh-policy";
+import { useLiveQuotes } from "@/lib/live/use-live-quotes";
 import { useQuoteRefresh } from "@/lib/live/use-quote-refresh";
 
 import { FreshnessBadge } from "./freshness-badge";
@@ -94,7 +97,30 @@ export function PositionsList({
    * d'un total juste. Le cours unitaire, lui, se lit sans conversion — c'est
    * exactement ce qu'on affiche, avec sa fraîcheur propre.
    */
-  const { quotes, state: liveState } = useQuoteRefresh();
+  const { quotes: polled, state: liveState } = useQuoteRefresh();
+
+  /*
+   * Le canal temps réel complète la scrutation, il ne la remplace pas.
+   *
+   * Il n'existe qu'avec une passerelle déployée et un fournisseur qui diffuse ;
+   * sans elle, `connection` vaut `disabled` et l'écran continue de vivre sur la
+   * scrutation REST. C'est pourquoi les deux tournent ensemble plutôt que l'un
+   * ou l'autre : basculer sur le flux quand il apparaît, et revenir à la
+   * scrutation quand il tombe, laisserait des trous à chaque transition.
+   */
+  const { quotes: streamed, connection } = useLiveQuotes();
+
+  // La date du cours tranche, jamais la source : voir `mostRecent`.
+  const quotes = useMemo((): ReadonlyMap<string, DisplayQuote> => {
+    const converted = new Map<string, DisplayQuote>();
+    for (const [instrumentId, quote] of streamed) {
+      const display = toDisplayQuote(quote);
+      // Une cotation dont le prix ou la devise ne passe pas les types du
+      // domaine est écartée, pas convertie de force.
+      if (display !== null) converted.set(instrumentId, display);
+    }
+    return mostRecent(polled, converted);
+  }, [polled, streamed]);
 
   /**
    * `false` tant que React n'écoute pas encore.
@@ -223,6 +249,7 @@ export function PositionsList({
       </div>
 
       <LiveRefreshStatus state={liveState} />
+      <LiveIndicator state={connection} />
 
       {commonFreshness === null ? null : (
         <p className="mt-1 text-xs text-tertiary" data-pl-common-freshness={commonFreshness}>

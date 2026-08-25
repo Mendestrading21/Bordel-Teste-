@@ -1,4 +1,12 @@
-import type { CurrencyCode, DecimalString, QuoteFreshness } from "@portfolio-lab/domain";
+import {
+  isCurrencyCode,
+  isDecimalString,
+  type CurrencyCode,
+  type DecimalString,
+  type QuoteFreshness,
+} from "@portfolio-lab/domain";
+
+import type { LiveQuote } from "./client-protocol";
 
 /**
  * Politique de scrutation des cours.
@@ -90,4 +98,70 @@ export function mergeQuotes(
   const next = new Map(previous);
   for (const quote of incoming) next.set(quote.instrumentId, quote);
   return next;
+}
+
+/**
+ * Un cours affichable, quelle que soit sa provenance.
+ *
+ * Le flux et la scrutation rendent des formes différentes. L'écran n'a pas à
+ * savoir laquelle il regarde — mais il doit savoir **quand** le cours a été
+ * établi, et c'est ce que porte `asOf`.
+ */
+export type DisplayQuote = {
+  readonly price: DecimalString;
+  readonly currency: CurrencyCode;
+  readonly freshness: QuoteFreshness;
+  readonly asOf: string;
+  readonly provider: string;
+};
+
+/**
+ * Retient, pour chaque instrument, le cours **le plus récent**.
+ *
+ * Deux sources alimentent le même écran : la scrutation REST toutes les
+ * minutes, et le flux temps réel quand une passerelle est déployée. Elles se
+ * recouvrent, et il faut trancher.
+ *
+ * Le critère est la date du cours, jamais la source. Privilégier le flux par
+ * principe afficherait un tick d'il y a dix minutes par-dessus une scrutation
+ * de l'instant, simplement parce qu'il est arrivé par une socket — un cours
+ * plus ancien présenté comme plus frais, exactement ce que l'étage de
+ * fraîcheur existe pour empêcher. À date égale, la valeur déjà affichée est
+ * conservée : remplacer un cours par un autre identique ferait clignoter la
+ * ligne sans rien apprendre.
+ */
+export function mostRecent(
+  polled: ReadonlyMap<string, DisplayQuote>,
+  streamed: ReadonlyMap<string, DisplayQuote>,
+): ReadonlyMap<string, DisplayQuote> {
+  if (streamed.size === 0) return polled;
+
+  const merged = new Map(polled);
+  for (const [instrumentId, quote] of streamed) {
+    const current = merged.get(instrumentId);
+    if (current === undefined || Date.parse(quote.asOf) > Date.parse(current.asOf)) {
+      merged.set(instrumentId, quote);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Convertit une cotation du flux en cours affichable.
+ *
+ * Renvoie `null` quand le prix n'est pas une décimale exacte ou la devise
+ * inconnue. Les types du fil sont de simples chaînes ; ceux du domaine sont
+ * marqués, et ce marquage n'est pas décoratif : il est ce qui empêche une
+ * chaîne arbitraire d'entrer dans un calcul de valorisation. Le convertir de
+ * force reviendrait à contourner la seule barrière qui existe.
+ */
+export function toDisplayQuote(quote: LiveQuote): DisplayQuote | null {
+  if (!isDecimalString(quote.price) || !isCurrencyCode(quote.currency)) return null;
+  return {
+    price: quote.price,
+    currency: quote.currency,
+    freshness: quote.freshness,
+    asOf: quote.asOf,
+    provider: quote.provider,
+  };
 }

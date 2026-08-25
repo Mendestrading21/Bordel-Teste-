@@ -168,3 +168,46 @@ export function buildQuoteRequests(
 
   return { requests, unidentified };
 }
+
+/** Un symbole suivi en temps réel, et l'instrument qu'il désigne. */
+export type SubscriptionSymbol = {
+  readonly symbol: string;
+  readonly instrumentId: string;
+};
+
+/**
+ * Choisit **un** symbole par instrument, pour l'abonnement temps réel.
+ *
+ * Un instrument porte souvent plusieurs identifiants — un ticker et un ISIN,
+ * par exemple. S'abonner aux deux consommerait deux places sur les cinquante
+ * qu'une connexion accepte, pour un seul cours utile : au-delà du plafond, les
+ * symboles excédentaires ne sont pas refusés, ils ne cotent simplement jamais.
+ *
+ * La préférence est la même que celle des requêtes REST. Deux ordres
+ * différents feraient suivre un instrument sous un symbole par le flux et sous
+ * un autre par la scrutation, avec deux cours qui ne se recouvriraient pas
+ * toujours — et rien à l'écran pour expliquer lequel croire.
+ */
+export function pickSubscriptionSymbols(
+  identifiers: readonly IdentifierRow[],
+): readonly SubscriptionSymbol[] {
+  const best = new Map<string, { rank: number; symbol: string }>();
+
+  for (const row of identifiers) {
+    const rank = PREFERENCE.indexOf(row.identifierType);
+    // `OSI` n'est pas dans la préférence : une option ne se suit pas par le
+    // symbole de son sous-jacent, et aucun canal ne la diffuse ici.
+    if (rank === -1) continue;
+    if (row.identifierType === "PROVIDER_SYMBOL" && (row.provider ?? "") === "") continue;
+
+    const current = best.get(row.instrumentId);
+    if (current === undefined || rank < current.rank) {
+      best.set(row.instrumentId, { rank, symbol: row.identifierValue });
+    }
+  }
+
+  return [...best.entries()]
+    .map(([instrumentId, entry]) => ({ instrumentId, symbol: entry.symbol }))
+    // Trié pour que deux appels identiques produisent le même jeton.
+    .sort((a, b) => a.symbol.localeCompare(b.symbol));
+}
