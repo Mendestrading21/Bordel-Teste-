@@ -6,6 +6,7 @@ import {
   eodhdStreamSymbol,
   eodhdStreamUrl,
   eodhdSubscription,
+  parseEodhdStatus,
   parseEodhdTick,
 } from "./eodhd-stream.js";
 
@@ -146,11 +147,127 @@ describe("parseEodhdTick", () => {
 
   it("préfère la transaction à la fourchette quand les deux sont présentes", () => {
     const quote = parseEodhdTick(
-      { s: "AAPL", p: "227.31", b: "227.30", a: "227.32", t: 1_787_500_800_000 },
+      { s: "AAPL", p: "227.31", bp: "227.30", ap: "227.32", t: 1_787_500_800_000 },
       context(apple, "us"),
     );
     expect(quote?.price).toBe("227.31");
     expect(quote?.priceType).toBe("LAST_TRADE");
+  });
+
+  /*
+   * Les quatre canaux n'emploient pas les mêmes noms pour une fourchette.
+   * `us-quote` publie `ap`/`bp`, `forex` publie `a`/`b`. Le parseur ne
+   * connaissait que la seconde forme : chaque message de `us-quote` était donc
+   * ignoré, et l'abonnement, accepté, ne cotait jamais — indiscernable d'un
+   * titre sans transaction.
+   */
+  it("lit la fourchette du canal us-quote, qui publie ap et bp", () => {
+    const quote = parseEodhdTick(
+      { s: "AAPL", ap: 317.297, as: 160, bp: 316.988, bs: 40, t: 1_784_115_291_977 },
+      context(apple, "us-quote"),
+    );
+
+    expect(quote, "un message us-quote doit produire une cotation").not.toBeNull();
+    expect(quote?.priceType).toBe("MID");
+    expect(quote?.bid).toBe("316.988");
+    expect(quote?.ask).toBe("317.297");
+  });
+
+  it("n'interprète pas les champs forex sur un canal actions", () => {
+    // `a`/`b` sur le canal `us-quote` ne sont pas une fourchette : les lire
+    // ferait coter une valeur qu'EODHD n'a pas publiée sous ce nom.
+    const quote = parseEodhdTick(
+      { s: "AAPL", a: 317.297, b: 316.988, t: 1_784_115_291_977 },
+      context(apple, "us-quote"),
+    );
+    expect(quote).toBeNull();
+  });
+
+  it("lit une transaction crypto dont le prix est une chaîne", () => {
+    const quote = parseEodhdTick(
+      { s: "BTC-USD", p: "1881.0931", q: "1", dc: "5.6041", t: 1_784_115_286_805 },
+      context(bitcoin, "crypto"),
+    );
+    expect(quote?.price).toBe("1881.0931");
+    expect(quote?.priceType).toBe("LAST_TRADE");
+  });
+
+  describe("statut de marché", () => {
+    it("ne revendique pas « direct » sur une impression reçue marché fermé", () => {
+      const quote = parseEodhdTick(
+        { s: "AAPL", p: 316.96, ms: "closed", t: 1_784_115_290_873 },
+        context(apple, "us"),
+      );
+      // Arriver par une socket ne rend pas un cours temps réel.
+      expect(quote?.freshness).toBe("EOD");
+    });
+
+    it("reste en direct hors séance, que le fournisseur cote réellement", () => {
+      const quote = parseEodhdTick(
+        { s: "AAPL", p: 316.96, ms: "extended-hours", t: 1_784_115_290_873 },
+        context(apple, "us"),
+      );
+      expect(quote?.freshness).toBe("LIVE");
+    });
+
+    it("reste en direct sur un canal qui ne publie pas de statut", () => {
+      const quote = parseEodhdTick(
+        { s: "EURUSD", a: "1.1419", b: "1.1416", t: 1_784_115_288_241 },
+        context(eurusd, "forex"),
+      );
+      expect(quote?.freshness).toBe("LIVE");
+    });
+  });
+
+  describe("messages de statut", () => {
+    it("reconnaît l'autorisation", () => {
+      expect(parseEodhdStatus({ status_code: 200, message: "Authorized" })).toEqual({
+        statusCode: 200,
+        message: "Authorized",
+        authorized: true,
+      });
+    });
+
+    /*
+     * Le cas qui compte : avec la clé de démonstration, tout symbole hors des
+     * six autorisés reçoit un 422 **à la place des données**. Traité comme un
+     * message anodin, il laisserait un abonnement définitivement muet passer
+     * pour un marché calme.
+     */
+    it("reconnaît un abonnement refusé", () => {
+      const status = parseEodhdStatus({
+        status_code: 422,
+        message: "Only limited symbols allowed for demo",
+      });
+      expect(status?.authorized).toBe(false);
+      expect(status?.statusCode).toBe(422);
+    });
+
+    it("ne confond pas un tick avec un statut", () => {
+      expect(parseEodhdStatus({ s: "AAPL", p: 316.96, t: 1 })).toBeNull();
+    });
+  });
+
+  describe("plafond de symboles par connexion", () => {
+    it("accepte cinquante symboles", () => {
+      const symbols = Array.from({ length: 50 }, (_unused, i) => `SYM${i}`);
+      expect(eodhdSubscription("subscribe", symbols).symbols.split(",")).toHaveLength(50);
+    });
+
+    /*
+     * EODHD n'échoue pas au-delà du plafond : il accepte l'abonnement et n'en
+     * cote qu'une partie. Le silence porterait sur les lignes après la
+     * cinquantième, sans que rien ne le signale.
+     */
+    it("refuse au-delà, plutôt que de laisser le surplus muet", () => {
+      const symbols = Array.from({ length: 51 }, (_unused, i) => `SYM${i}`);
+      expect(() => eodhdSubscription("subscribe", symbols)).toThrow(/plafond/u);
+    });
+
+    it("ne plafonne pas un désabonnement", () => {
+      const symbols = Array.from({ length: 51 }, (_unused, i) => `SYM${i}`);
+      expect(() => eodhdSubscription("unsubscribe", symbols)).not.toThrow();
+    });
   });
 
   it("distingue secondes et millisecondes", () => {
