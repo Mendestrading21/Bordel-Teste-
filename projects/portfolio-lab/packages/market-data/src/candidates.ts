@@ -208,6 +208,58 @@ export const CANDIDATE_PROVIDERS: readonly ProviderRegistration[] = [
     },
   },
   {
+    id: "finra",
+    label: "FINRA TRACE",
+    capabilities: UNMEASURED_CAPABILITIES({
+      assetTypes: ["BOND"],
+      // TRACE publie des transactions déclarées, pas un flux ni un carnet.
+      bestFreshness: "EOD",
+    }),
+    verification: "FIXTURE_TESTED",
+    blockedBy:
+      "Le module finra-trace sait normaliser une transaction TRACE et en déduire " +
+      "une fraîcheur, mais il n'existe ni client HTTP ni entrée de routeur pour " +
+      "aller la chercher : ce sont des fonctions, pas un fournisseur. " +
+      NOT_IMPLEMENTED,
+    apiKeyEnvVar: "FINRA_API_KEY",
+    documentationUrl: "https://www.finra.org/finra-data/browse-catalog/fixed-income",
+    create: () => null,
+  },
+  {
+    id: "alphavantage",
+    label: "Alpha Vantage",
+    capabilities: UNMEASURED_CAPABILITIES({
+      assetTypes: ["STOCK", "ETF"],
+      searchByText: true,
+      fx: true,
+      history: true,
+    }),
+    verification: "UNVERIFIED",
+    blockedBy: NOT_IMPLEMENTED,
+    apiKeyEnvVar: "ALPHAVANTAGE_API_KEY",
+    documentationUrl: "https://www.alphavantage.co/documentation/",
+    create: () => null,
+  },
+  {
+    id: "factset",
+    label: "FactSet",
+    capabilities: UNMEASURED_CAPABILITIES({
+      assetTypes: ["STOCK", "ETF", "MUTUAL_FUND", "OPTION", "BOND"],
+      searchByText: true,
+      searchByIsin: true,
+      optionChains: true,
+      fx: true,
+      history: true,
+    }),
+    verification: "UNVERIFIED",
+    blockedBy:
+      "Offre institutionnelle : l'accès se négocie, il ne s'obtient pas par " +
+      "inscription. " + NOT_IMPLEMENTED,
+    apiKeyEnvVar: "FACTSET_API_KEY",
+    documentationUrl: "https://developer.factset.com/",
+    create: () => null,
+  },
+  {
     id: "openfigi",
     label: "OpenFIGI",
     capabilities: UNMEASURED_CAPABILITIES({
