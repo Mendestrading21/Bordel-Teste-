@@ -1,6 +1,7 @@
-import type { AssetType } from "@portfolio-lab/domain";
+import { toDecimalString, type AssetType, type CurrencyCode } from "@portfolio-lab/domain";
 
 import type {
+  FxQuote,
   HistoryRequest,
   InstrumentCandidate,
   InstrumentReference,
@@ -309,6 +310,65 @@ export class ProviderRouter {
       { assetType: instrument.assetType, exchangeMic: instrument.exchangeMic },
       (provider) => provider.getSnapshot(instrument),
     ).then(({ value, trace }) => ({ quote: value, trace }));
+  }
+
+  /**
+   * Taux de change vers une devise de consolidation.
+   *
+   * Le routeur savait déjà **choisir** un fournisseur capable de FX — la
+   * capacité `fx` et la vérification de `getFxRate` existaient — mais aucune
+   * méthode ne permettait d'en obtenir un taux. La sélection était donc du code
+   * inatteignable, et toute valorisation multidevise retombait sur des taux de
+   * fixture.
+   *
+   * Une conversion d'une devise vers elle-même n'interroge personne : elle vaut
+   * exactement 1. Demander `CHF/CHF` à un fournisseur introduirait un arrondi
+   * parasite et pourrait marquer le taux périmé sans raison.
+   */
+  fxRate(
+    base: CurrencyCode,
+    quote: CurrencyCode,
+  ): Promise<{ fx: FxQuote; trace: RouterTrace }> {
+    if (base === quote) {
+      return Promise.resolve({
+        fx: {
+          base,
+          quote,
+          rate: toDecimalString("1"),
+          provider: "identity",
+          asOf: new Date(0).toISOString(),
+          /*
+           * `MANUAL`, et non `LIVE`.
+           *
+           * Un taux d'une devise vers elle-même vaut exactement 1, mais aucun
+           * fournisseur ne l'a coté : le revendiquer temps réel serait
+           * précisément la promotion de fraîcheur que ce produit interdit.
+           * C'est le choix déjà fait par l'adaptateur EODHD pour le même cas,
+           * et deux réponses différentes à la même question finiraient par se
+           * contredire à l'écran.
+           *
+           * Cette valeur ne dégrade rien : le moteur de valorisation résout
+           * l'identité avant de consulter la table (`resolveFx` court-circuite
+           * `from === to`), et ne lit donc jamais cette fraîcheur.
+           */
+          freshness: "MANUAL",
+        },
+        trace: {
+          requirement: "fx",
+          attemptedProviders: [],
+          servedBy: "identity",
+          failures: [],
+          skipped: [],
+        },
+      });
+    }
+
+    return this.firstSuccess("fx", {}, async (provider) => {
+      if (provider.getFxRate === undefined) {
+        throw new ProviderError("UNSUPPORTED", provider.id, "Pas de FX");
+      }
+      return provider.getFxRate(base, quote);
+    }).then(({ value, trace }) => ({ fx: value, trace }));
   }
 
   history(request: HistoryRequest): Promise<{ bars: readonly PriceBar[]; trace: RouterTrace }> {

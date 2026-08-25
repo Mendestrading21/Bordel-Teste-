@@ -59,6 +59,49 @@ Ce que le plan gratuit couvre réellement :
 Les lignes non couvertes restent en saisie manuelle et l'écran le dit — il ne
 prétend jamais avoir un cours qu'il n'a pas.
 
+## 1 bis. Couvrir les places suisses, les fonds et les taux de change — EODHD
+
+Finnhub gratuit ne sert ni les fonds, ni les options, ni les places suisses en
+temps réel. Il ne sert pas non plus de taux de change, et sans taux, toute
+position en devise étrangère reste **non valorisée** — c'est voulu : convertir
+avec un taux inventé donnerait un total en francs plausible et faux.
+
+EODHD comble les trois trous d'un coup.
+
+1. Créer un compte sur <https://eodhd.com/register>.
+2. Renseigner :
+
+   ```
+   EODHD_ENABLED=true
+   EODHD_MODE=live
+   EODHD_API_KEY=votre-clé
+   ```
+
+Sans clé, `EODHD_MODE=demo` utilise la clé publique `demo` officiellement
+publiée par EODHD. Elle est limitée à une poignée de symboles et ne donne pas
+accès à la recherche — assez pour prouver que le transport fonctionne, pas pour
+valoriser un portefeuille.
+
+Twelve Data joue le même rôle et sert aussi le FX :
+
+```
+TWELVE_DATA_ENABLED=true
+TWELVE_DATA_MODE=live
+TWELVE_DATA_API_KEY=votre-clé
+```
+
+Les deux peuvent coexister. Le routeur choisit par classe d'actifs et bascule
+sur le suivant quand le premier échoue, en conservant la trace de qui a
+réellement servi la donnée.
+
+### Sans taux de change, rien n'est inventé
+
+Quand aucun fournisseur ne sert de taux, les positions en devise étrangère
+apparaissent **non valorisées**, avec leur motif. Elles ne sont pas converties
+au taux d'hier, ni à 1. C'est le seul endroit du produit où une valeur absente
+vaut franchement mieux qu'une valeur approchée : un total en francs faux ne se
+distingue en rien d'un total juste.
+
 ## 2. La base — Supabase
 
 1. Créer un projet sur <https://supabase.com> (offre gratuite).
@@ -129,8 +172,14 @@ cours de l'action au lieu de celui du contrat.
 
 ## Ce qui reste en saisie manuelle
 
-Fonds de placement et options, que Finnhub ne sert pas sur ce plan. Pour les
-couvrir, il faut un fournisseur qui les publie — EODHD pour les fonds, Massive
-pour les options ; les deux adaptateurs existent déjà dans
-`packages/market-data/`, il ne leur manque qu'une clé et la variable
-correspondante dans `.env.example`.
+Avec Finnhub seul : les fonds de placement, les options, et toute position en
+devise étrangère faute de taux de change.
+
+Avec EODHD ou Twelve Data en plus : les fonds et le FX sont couverts. Restent
+les **options**, qu'aucun des deux ne publie. Il faudrait Massive, dont
+l'adaptateur existe déjà dans `packages/market-data/` mais qui n'offre aucun
+mode démo — il exige une clé payante.
+
+Restent aussi les **obligations**. Le module `finra-trace` sait normaliser une
+transaction TRACE, mais il n'existe ni client HTTP ni entrée de routeur pour
+aller la chercher : ce sont des fonctions, pas un fournisseur.

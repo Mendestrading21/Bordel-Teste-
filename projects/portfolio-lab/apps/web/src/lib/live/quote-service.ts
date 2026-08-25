@@ -3,8 +3,10 @@ import "server-only";
 import {
   buildQuoteRequests,
   createConfiguredProviders,
+  refreshFxRates,
   ProviderRouter,
   refreshQuotes,
+  type FxRefreshReport,
   type IdentifierRow,
   type InstrumentRow,
   type QuoteRefreshOutcome,
@@ -218,4 +220,25 @@ function isQuoted(
   outcome: QuoteRefreshOutcome,
 ): outcome is Extract<QuoteRefreshOutcome, { kind: "QUOTED" }> {
   return outcome.kind === "QUOTED";
+}
+
+/**
+ * Taux de change vers la devise de consolidation, depuis un fournisseur réel.
+ *
+ * Rendu séparément du rafraîchissement des cours parce que les deux n'ont pas
+ * la même conséquence en cas d'échec. Un cours manquant laisse une ligne non
+ * valorisée ; un taux manquant fausse toutes les lignes de cette devise et le
+ * total avec elles.
+ *
+ * Renvoie `null` quand aucun fournisseur n'est configuré — l'appelant décide
+ * alors quoi faire, et ce qu'il décide doit rester visible à l'écran. Rendre un
+ * tableau vide serait indiscernable de « aucune devise étrangère à convertir ».
+ */
+export async function fetchFxRates(
+  currencies: readonly CurrencyCode[],
+  baseCurrency: CurrencyCode,
+): Promise<FxRefreshReport | null> {
+  const configured = routerOrNull();
+  if (configured === null) return null;
+  return refreshFxRates(configured.router, currencies, baseCurrency);
 }
