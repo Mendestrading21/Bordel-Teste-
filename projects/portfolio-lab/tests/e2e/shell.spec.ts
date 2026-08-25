@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { colorTokens } from "@portfolio-lab/ui";
 
@@ -72,6 +72,89 @@ test.describe("mise en page", () => {
       expect(box, `lien ${index} sans boîte`).not.toBeNull();
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
     }
+  });
+});
+
+/**
+ * Mise en page en mode installé, sur un iPhone à encoche.
+ *
+ * Ce mode ne peut pas être atteint par un navigateur de test : il faut avoir
+ * ajouté l'application à l'écran d'accueil. Les valeurs de `env(safe-area-*)`
+ * y valent 47 à 59 px en haut, contre 0 dans un onglet — et c'est précisément
+ * dans cet écart que se cachait le défaut : un padding fixe de 24 px laissait
+ * la première ligne de chaque écran sous l'heure et l'îlot dynamique.
+ *
+ * Les zones sûres passent donc par des variables CSS, redéfinissables. Ces
+ * parcours leur donnent les valeurs d'un iPhone réel et vérifient que la mise
+ * en page en tient compte.
+ */
+test.describe("mode installé sur iPhone", () => {
+  /** Zones sûres d'un iPhone à îlot dynamique, en portrait. */
+  const NOTCH = { top: 59, bottom: 34 };
+
+  async function simulateNotch(page: Page): Promise<void> {
+    await page.addStyleTag({
+      content: `:root {
+        --pl-safe-top: ${NOTCH.top}px;
+        --pl-safe-bottom: ${NOTCH.bottom}px;
+      }`,
+    });
+  }
+
+  test("le contenu descend sous la barre d'état", async ({ page }) => {
+    await page.goto("/");
+
+    const main = page.locator("#contenu-principal");
+    const before = await main.evaluate((node) => Number.parseFloat(getComputedStyle(node).paddingTop));
+
+    await simulateNotch(page);
+    const after = await main.evaluate((node) => Number.parseFloat(getComputedStyle(node).paddingTop));
+
+    /*
+     * Sans zone sûre, le padding ne bouge pas d'un pixel : c'est exactement
+     * l'état d'avant, et le titre restait sous l'heure.
+     */
+    expect(after - before).toBeCloseTo(NOTCH.top, 0);
+  });
+
+  test("le premier titre reste sous l'encoche, jamais dessous", async ({ page }) => {
+    await page.goto("/");
+    await simulateNotch(page);
+
+    const heading = page.getByRole("heading", { level: 1 }).first();
+    const box = await heading.boundingBox();
+
+    expect(box, "le titre principal doit être visible").not.toBeNull();
+    // Le haut du titre doit se trouver sous la zone occupée par l'îlot.
+    expect(box?.y ?? 0).toBeGreaterThanOrEqual(NOTCH.top);
+  });
+
+  test("la barre de navigation garde sa marge basse", async ({ page }) => {
+    await page.goto("/");
+    await simulateNotch(page);
+
+    const nav = page.getByRole("navigation", { name: "Navigation principale" });
+    const padding = await nav.evaluate((node) =>
+      Number.parseFloat(getComputedStyle(node).paddingBottom),
+    );
+
+    // Sur iPhone, la barre d'accueil occupe le bas de l'écran : sans cette
+    // marge, le dernier onglet est à moitié sous le trait.
+    expect(padding).toBeCloseTo(NOTCH.bottom, 0);
+  });
+
+  test("aucune zone sûre en onglet : rien n'est réservé pour rien", async ({ page }) => {
+    await page.goto("/");
+
+    const nav = page.getByRole("navigation", { name: "Navigation principale" });
+    const padding = await nav.evaluate((node) =>
+      Number.parseFloat(getComputedStyle(node).paddingBottom),
+    );
+
+    // `env(..., 0px)` doit retomber sur zéro dans un navigateur ordinaire :
+    // réserver une bande vide en haut d'un onglet serait aussi visible que
+    // l'inverse.
+    expect(padding).toBe(0);
   });
 });
 

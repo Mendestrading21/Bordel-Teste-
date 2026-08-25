@@ -135,8 +135,44 @@ enverrait la clé dans le navigateur, où n'importe quel visiteur la lirait.
 
 ## 4. Sur l'iPhone
 
-Ouvrir l'adresse dans **Safari** — Chrome iOS ne propose pas l'installation —
-puis **Partager → Sur l'écran d'accueil**.
+1. Ouvrir l'adresse dans **Safari**. Chrome et Firefox sur iOS ne proposent pas
+   l'installation : seul Safari le peut.
+2. Toucher le bouton **Partager** (le carré avec la flèche vers le haut).
+3. Faire défiler, puis **Sur l'écran d'accueil**.
+4. Valider. L'icône apparaît parmi les applications.
+
+Lancée depuis cette icône, l'application s'ouvre **en plein écran**, sans barre
+d'adresse ni onglets. C'est un mode différent de celui du navigateur, et
+plusieurs choses n'y sont visibles que là :
+
+- le contenu passe **sous** l'heure et l'îlot dynamique, d'où les marges de
+  zone sûre — vérifiées par un parcours automatisé qui simule un iPhone à
+  encoche ;
+- la barre de navigation basse laisse la place à la barre d'accueil ;
+- l'orientation reste en portrait ;
+- la barre d'état est claire sur fond sombre.
+
+### Si l'icône apparaît blanche ou générique
+
+Safari met les icônes en cache agressivement. Supprimer l'application de
+l'écran d'accueil, fermer Safari, le rouvrir, recharger la page, puis
+réinstaller.
+
+### Ce que l'application fait sans réseau
+
+Elle reste consultable : les écrans déjà visités sont servis depuis le cache, et
+un bandeau annonce **de quand datent les chiffres affichés**. C'est la moitié
+qui compte — savoir qu'on est hors ligne ne sert à rien si on ignore l'âge des
+données.
+
+Aucun cours n'est rafraîchi hors ligne, et rien ne prétend le contraire.
+
+### Ce qu'elle ne fait pas
+
+Elle **n'envoie aucune notification**. iOS les autorise pour les applications
+installées depuis iOS 16.4, mais rien de tel n'est implémenté ici : la routine
+du matin écrit dans Notion, elle ne fait pas sonner le téléphone. Si vous le
+voulez, c'est un travail à part entière — dites-le-moi.
 
 ---
 
