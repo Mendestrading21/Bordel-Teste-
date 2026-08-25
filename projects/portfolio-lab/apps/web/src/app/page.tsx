@@ -86,6 +86,7 @@ export default async function AccueilPage(): Promise<React.JSX.Element> {
               "Aucune donnée n'est affichée avant authentification, et aucune donnée de démonstration ne vient combler l'écran.",
               "L'application ne se connecte à aucune banque et ne demande aucun mot de passe bancaire.",
             ]}
+            action={{ href: "/connexion", label: "Se connecter" }}
           />
         ) : (
           <EmptyState

@@ -102,6 +102,61 @@ au taux d'hier, ni à 1. C'est le seul endroit du produit où une valeur absente
 vaut franchement mieux qu'une valeur approchée : un total en francs faux ne se
 distingue en rien d'un total juste.
 
+## 1 ter. Votre accès — phrase secrète
+
+Sans cette étape, l'application déployée reste **fermée** : elle refuse
+d'afficher quoi que ce soit tant qu'aucune session n'est ouverte, et c'est
+voulu — un suivi de patrimoine visible sans mot de passe n'est pas un suivi de
+patrimoine.
+
+Sur votre machine, dans le dossier du projet :
+
+```bash
+pnpm creer-acces
+```
+
+Le script demande une phrase secrète, deux fois, **sans l'afficher**. Il ne
+l'enregistre nulle part et ne la transmet à personne : seule son empreinte
+sort, et une empreinte ne se retourne pas en phrase.
+
+Il produit trois lignes :
+
+```
+PORTFOLIO_LAB_OWNER_ID=…
+PORTFOLIO_LAB_SESSION_SECRET=…
+PORTFOLIO_LAB_PASSPHRASE_HASH=…
+```
+
+Copiez-les dans les variables d'environnement de l'hébergeur. **Jamais dans
+Git.**
+
+### Choisir la phrase
+
+Quatre mots ordinaires valent mieux qu'un mot compliqué : plus long, plus
+facile à retenir, et rien à noter sur un papier. Douze caractères minimum.
+
+Notez-la dans votre gestionnaire de mots de passe **avant** de déployer :
+personne ne peut la retrouver, pas même vous. Le serveur n'en garde que
+l'empreinte.
+
+### Ce que fait chaque valeur
+
+| Variable | Rôle |
+| --- | --- |
+| `PORTFOLIO_LAB_OWNER_ID` | l'identifiant du propriétaire du portefeuille en base |
+| `PORTFOLIO_LAB_SESSION_SECRET` | signe le cookie de session ; le changer déconnecte tout |
+| `PORTFOLIO_LAB_PASSPHRASE_HASH` | l'empreinte de votre phrase ; jamais la phrase |
+
+Changer `PORTFOLIO_LAB_OWNER_ID` révoque **toutes** les sessions d'un coup :
+c'est le geste à faire si vous pensez qu'un appareil a été compromis.
+
+### Pour changer de phrase
+
+Relancez `pnpm creer-acces`, puis remplacez uniquement
+`PORTFOLIO_LAB_PASSPHRASE_HASH`. Gardez les deux autres valeurs telles quelles :
+changer `PORTFOLIO_LAB_OWNER_ID` vous couperait de vos propres données, qui
+appartiennent en base à l'ancien identifiant.
+
 ## 2. La base — Supabase
 
 1. Créer un projet sur <https://supabase.com> (offre gratuite).

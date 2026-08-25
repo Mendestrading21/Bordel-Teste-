@@ -971,10 +971,21 @@ test.describe("état des fournisseurs de données", () => {
   test("indique le nom de la variable de clé, jamais une valeur", async ({ page }) => {
     await page.goto("/reglages");
     await expect(page.getByText("TWELVE_DATA_API_KEY")).toBeVisible();
-    const body = (await page.textContent("body")) ?? "";
-    // Une clé réelle est une longue chaîne alphanumérique ; le nom de variable
-    // n'en est pas une.
-    expect(body).not.toMatch(/[A-Za-z0-9]{32,}/);
+
+    /*
+     * La vérification porte sur la **liste des fournisseurs**, et non sur la
+     * page entière.
+     *
+     * L'heuristique — « une clé réelle est une longue chaîne alphanumérique »
+     * — est bonne pour cette liste, où tout est du texte lisible. Appliquée à
+     * tout le document, elle butait sur l'identifiant d'action que Next
+     * embarque dans chaque formulaire : quarante caractères opaques, qui ne
+     * sont pas une clé fournisseur. Un test qui échoue sur du bruit finit par
+     * être désactivé, et c'est ainsi qu'on perd la vérification utile.
+     */
+    const providers = (await page.locator("[data-pl-providers]").textContent()) ?? "";
+    expect(providers).not.toBe("");
+    expect(providers).not.toMatch(/[A-Za-z0-9]{32,}/u);
   });
 
   test("dit pour chaque fournisseur ce qui manque encore", async ({ page }) => {

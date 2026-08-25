@@ -17,7 +17,6 @@ import { deletionLimiter, logger, mutationLimiter } from "../security/limits";
 
 import { recordSnapshot } from "./analytics";
 import { deleteAllUserData } from "./export";
-import { resolveDataMode } from "./mode";
 import { loadPortfolioView } from "./portfolio";
 import {
   createAccountSchema,
@@ -28,6 +27,7 @@ import {
   toFieldErrors,
   type ActionResult,
 } from "./validation";
+import { currentUserId } from "@/lib/auth/owner";
 
 /**
  * Actions serveur du portefeuille.
@@ -45,10 +45,16 @@ function database(): Database {
   return cachedDatabase;
 }
 
-/** Identité de l'utilisateur courant, ou `null` si aucune n'est établie. */
-function currentUserId(): string | null {
-  const mode = resolveDataMode();
-  return mode.kind === "demo" ? mode.userId : null;
+/**
+ * Identité de l'utilisateur courant, ou `null` si aucune n'est établie.
+ *
+ * Réexportée sous un nom local pour que les actions ci-dessous restent
+ * lisibles, mais la résolution est **unique** et vit dans `@/lib/auth/owner` :
+ * treize copies de cette logique existaient auparavant, toutes limitées au mode
+ * démonstration, et l'application était vide partout ailleurs.
+ */
+async function callerId(): Promise<string | null> {
+  return currentUserId();
 }
 
 const NOT_AUTHENTICATED: ActionResult = {
@@ -76,7 +82,7 @@ export async function createAccountAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -121,7 +127,7 @@ export async function createPositionAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -182,7 +188,7 @@ export async function updatePositionAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -236,7 +242,7 @@ export async function deletePositionAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -269,7 +275,7 @@ export async function archiveAccountAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -312,7 +318,7 @@ export async function recordSnapshotAction(
   _previous: ActionResult,
   _formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }
@@ -352,7 +358,7 @@ export async function deleteEverythingAction(
   _previous: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = currentUserId();
+  const userId = await callerId();
   if (userId === null) {
     return NOT_AUTHENTICATED;
   }

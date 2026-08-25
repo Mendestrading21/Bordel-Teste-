@@ -37,6 +37,15 @@ export const liveTokenLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 
  */
 export const quoteRefreshLimiter = createRateLimiter({ limit: 30, windowMs: 60_000 });
 
+/**
+ * Tentatives de connexion.
+ *
+ * Dix par cinq minutes. Assez pour une phrase mal tapée plusieurs fois de
+ * suite, très loin de ce qu'exigerait un essai systématique — d'autant que
+ * chaque vérification coûte déjà environ 200 ms de `scrypt`.
+ */
+export const loginLimiter = createRateLimiter({ limit: 10, windowMs: 300_000 });
+
 export const exportLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
 
 /**

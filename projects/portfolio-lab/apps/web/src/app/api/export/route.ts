@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { buildExport } from "@/lib/data/export";
 import { resolveDataMode } from "@/lib/data/mode";
+import { currentUserId } from "@/lib/auth/owner";
 import { exportLimiter, logger, retryAfterSeconds } from "@/lib/security/limits";
 
 /**
@@ -18,7 +19,7 @@ export const revalidate = 0;
 
 export async function GET(): Promise<NextResponse> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
 
   if (userId === null) {
     return NextResponse.json(

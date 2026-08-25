@@ -10,6 +10,7 @@ import {
 import { toDecimalString, type CurrencyCode } from "@portfolio-lab/domain";
 
 import { resolveDataMode } from "./mode";
+import { currentUserId } from "@/lib/auth/owner";
 
 /**
  * Lecture des fonds et de leurs NAV.
@@ -99,7 +100,7 @@ type FundRow = {
 
 export async function listFunds(now: Date = new Date()): Promise<readonly FundView[]> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   if (userId === null) {
     return [];
   }

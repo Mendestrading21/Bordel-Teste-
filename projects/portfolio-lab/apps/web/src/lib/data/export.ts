@@ -8,6 +8,7 @@ import {
 } from "@portfolio-lab/database";
 
 import { resolveDataMode } from "./mode";
+import { currentUserId } from "@/lib/auth/owner";
 
 /**
  * Sauvegarde et suppression des données personnelles.
@@ -98,7 +99,7 @@ const EXPORT_QUERIES = {
  */
 export async function buildExport(now: Date): Promise<PortfolioExport | null> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   if (userId === null) {
     return null;
   }
@@ -159,7 +160,7 @@ export type DeletionReport = {
  */
 export async function deleteAllUserData(): Promise<DeletionReport | null> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   if (userId === null) {
     return null;
   }

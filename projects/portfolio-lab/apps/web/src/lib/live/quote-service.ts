@@ -15,6 +15,7 @@ import { createDatabase, loadDatabaseConfig, type Database } from "@portfolio-la
 import type { AssetType, CurrencyCode, DecimalString, QuoteFreshness } from "@portfolio-lab/domain";
 
 import { resolveDataMode } from "@/lib/data/mode";
+import { currentUserId } from "@/lib/auth/owner";
 
 /**
  * Service de rafraîchissement des cours pour l'application web.
@@ -123,7 +124,7 @@ export async function refreshPortfolioQuotes(): Promise<QuoteRefreshResponse> {
   }
 
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   if (userId === null) {
     return { status: "disabled", reason: "Session requise pour rafraîchir les cours." };
   }
@@ -259,7 +260,7 @@ export async function fetchFxRates(
  */
 export async function portfolioSubscriptionScope(): Promise<readonly string[]> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   if (userId === null) return [];
 
   return database().withUser(userId, async (client) => {

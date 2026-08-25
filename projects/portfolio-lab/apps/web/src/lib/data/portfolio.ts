@@ -27,6 +27,7 @@ import { fetchFxRates } from "@/lib/live/quote-service";
 import demoMarks from "../../../../../tests/fixtures/demo-marks.json" with { type: "json" };
 
 import { resolveDataMode, type DataMode } from "./mode";
+import { currentUserId } from "@/lib/auth/owner";
 
 /**
  * Accès aux données de portefeuille côté serveur.
@@ -173,7 +174,7 @@ export async function loadPortfolioView(): Promise<PortfolioView> {
     return EMPTY_VIEW(mode);
   }
 
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   if (userId === null) {
     /*
      * Mode `database` sans session authentifiée.
@@ -336,7 +337,7 @@ export type InstrumentOptionRecord = {
  */
 export async function listInstruments(): Promise<readonly InstrumentOptionRecord[]> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
   if (userId === null) {
     return [];
   }

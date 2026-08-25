@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { resolveDataMode } from "@/lib/data/mode";
+import { currentUserId } from "@/lib/auth/owner";
 import { refreshPortfolioQuotes } from "@/lib/live/quote-service";
 import { logger, quoteRefreshLimiter, retryAfterSeconds } from "@/lib/security/limits";
 
@@ -24,7 +25,7 @@ export const revalidate = 0;
 
 export async function POST(): Promise<NextResponse> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
 
   if (userId === null) {
     return NextResponse.json(

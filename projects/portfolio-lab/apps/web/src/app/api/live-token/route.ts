@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { resolveDataMode } from "@/lib/data/mode";
+import { currentUserId } from "@/lib/auth/owner";
 import { portfolioSubscriptionScope } from "@/lib/live/quote-service";
 import { liveTokenLimiter, logger, retryAfterSeconds } from "@/lib/security/limits";
 
@@ -27,7 +28,7 @@ const TOKEN_TTL_MS = 5 * 60_000;
 
 export async function POST(): Promise<NextResponse> {
   const mode = resolveDataMode();
-  const userId = mode.kind === "demo" ? mode.userId : null;
+  const userId = await currentUserId(mode);
 
   if (userId === null) {
     return NextResponse.json(
