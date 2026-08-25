@@ -242,3 +242,57 @@ export async function fetchFxRates(
   if (configured === null) return null;
   return refreshFxRates(configured.router, currencies, baseCurrency);
 }
+
+/**
+ * Symboles auxquels la session a le droit de s'abonner sur le canal temps réel.
+ *
+ * Dérivé du portefeuille **côté serveur**, comme la liste des cours. C'est ce
+ * périmètre qui est ensuite scellé dans le jeton de canal : sans lui, le jeton
+ * prouvait qui était l'appelant sans limiter ce à quoi il pouvait s'abonner, et
+ * la passerelle devenait un relais de données de marché sur la clé de
+ * l'exploitant.
+ *
+ * Seules les valeurs d'identifiants réellement enregistrées sont retenues. Un
+ * instrument sans identifiant n'entre pas dans le périmètre — cohérent avec le
+ * rafraîchissement REST, qui le déclare non identifiable plutôt que de le
+ * deviner.
+ */
+export async function portfolioSubscriptionScope(): Promise<readonly string[]> {
+  const mode = resolveDataMode();
+  const userId = mode.kind === "demo" ? mode.userId : null;
+  if (userId === null) return [];
+
+  return database().withUser(userId, async (client) => {
+    const portfolios = await client.query<{ id: string }>(
+      "select id from portfolios order by created_at asc limit 1",
+    );
+    const portfolioId = portfolios.rows[0]?.id;
+    if (portfolioId === undefined) return [];
+
+    const { rows } = await client.query<{ identifier_value: string }>(
+      `select distinct ii.identifier_value
+         from positions p
+         join instrument_identifiers ii on ii.instrument_id = p.instrument_id
+        where p.portfolio_id = $1`,
+      [portfolioId],
+    );
+
+    /*
+     * Les valeurs hors alphabet sont écartées ici plutôt que de faire échouer
+     * l'émission du jeton. Un identifiant exotique en base ne doit pas priver
+     * l'utilisateur de tout le canal : il le prive de sa seule ligne.
+     */
+    return rows
+      .map((row) => row.identifier_value)
+      .filter((value) => SCOPE_SYMBOL_PATTERN.test(value));
+  });
+}
+
+/**
+ * Même alphabet que celui accepté par le jeton de canal.
+ *
+ * Dupliqué plutôt qu'importé : l'application web ne dépend pas de la passerelle,
+ * qui est un service déployé séparément. `scope-sync.test.ts` vérifie que les
+ * deux définitions ne divergent pas.
+ */
+const SCOPE_SYMBOL_PATTERN = /^[A-Za-z0-9._:-]{1,32}$/;

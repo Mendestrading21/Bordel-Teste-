@@ -42,6 +42,14 @@ export type WsServerOptions = {
 type ClientState = {
   readonly id: string;
   readonly userId: string;
+  /**
+   * Symboles auxquels ce client a le droit de s'abonner.
+   *
+   * Fixé à la connexion par le jeton signé, jamais par le client. C'est ce qui
+   * empêche un utilisateur authentifié d'employer la passerelle comme relais de
+   * données de marché sur la clé d'API de l'exploitant.
+   */
+  readonly scope: ReadonlySet<string>;
   readonly socket: WebSocket;
   /** Dernier signe de vie, pour détecter une connexion morte. */
   lastSeenAt: number;
@@ -129,6 +137,7 @@ export function createLiveChannel(options: WsServerOptions): {
       const client: ClientState = {
         id: randomUUID(),
         userId: verification.userId,
+        scope: new Set(verification.scope),
         socket: ws,
         lastSeenAt: options.now(),
       };
@@ -152,6 +161,30 @@ export function createLiveChannel(options: WsServerOptions): {
 
         if (message.type === "ping") {
           send(client.id, { type: "pong" });
+          return;
+        }
+
+        /*
+         * Le périmètre est vérifié **avant** tout le reste.
+         *
+         * Un symbole hors périmètre est refusé et nommé, jamais ignoré : le
+         * client saurait sinon qu'il est abonné et n'entendrait jamais rien de
+         * cette ligne — indiscernable d'un titre qui ne s'échange pas. Même
+         * raisonnement que pour le plafond ci-dessous.
+         */
+        const outOfScope = message.symbols.filter((symbol) => !client.scope.has(symbol));
+        if (outOfScope.length > 0) {
+          options.logger.warn("abonnement hors périmètre refusé", {
+            userId: client.userId,
+            count: outOfScope.length,
+          });
+          send(client.id, {
+            type: "error",
+            code: "OUT_OF_SCOPE",
+            message:
+              `Symboles hors du périmètre autorisé : ${outOfScope.join(", ")}. ` +
+              "Le périmètre est fixé par votre portefeuille, pas par le client.",
+          });
           return;
         }
 

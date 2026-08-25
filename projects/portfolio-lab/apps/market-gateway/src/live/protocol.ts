@@ -73,6 +73,13 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
        * refusé, et réessayer plus tard n'y changera rien.
        */
       "SUBSCRIPTION_LIMIT",
+      /*
+       * Symbole hors du périmètre porté par le jeton. Ni une cadence ni un
+       * volume : la demande ne sera jamais acceptée avec ce jeton, quel que
+       * soit le délai d'attente. Le périmètre vient du portefeuille de
+       * l'utilisateur, fixé côté serveur.
+       */
+      "OUT_OF_SCOPE",
     ]),
     /** Message destiné à l'utilisateur, sans détail interne ni secret. */
     message: z.string(),

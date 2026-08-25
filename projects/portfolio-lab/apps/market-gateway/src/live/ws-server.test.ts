@@ -24,6 +24,15 @@ import { SubscriptionRegistry, DEFAULT_SUBSCRIPTION_LIMITS } from "./subscriptio
  */
 
 const SECRET = "un-secret-partage-de-plus-de-32-caracteres";
+
+/**
+ * Périmètre par défaut des jetons de test.
+ *
+ * Couvre les symboles utilisés par les cas d'abonnement. Un jeton sans
+ * périmètre n'autorise plus rien : c'est le comportement voulu, et le seul qui
+ * empêche un client authentifié de s'abonner à ce qu'il veut.
+ */
+const SCOPE = ["AAPL", "MSFT"] as const;
 const USER = "11111111-1111-4111-8111-111111111111";
 const OTHER_USER = "22222222-2222-4222-8222-222222222222";
 
@@ -147,7 +156,7 @@ describe("canal temps réel", () => {
 
   describe("authentification", () => {
     it("accepte une connexion avec un jeton valide", async () => {
-      const socket = connect(issueChannelToken(USER, SECRET, clock));
+      const socket = connect(issueChannelToken(USER, SECRET, clock, SCOPE));
       const welcome = await waitFor(socket, "welcome");
       expect(welcome).toMatchObject({ type: "welcome", provider: "mock" });
       socket.close();
@@ -159,20 +168,20 @@ describe("canal temps réel", () => {
     });
 
     it("refuse un jeton signé avec un autre secret", async () => {
-      const forged = issueChannelToken(USER, "un-autre-secret-de-plus-de-32-caracteres!", clock);
+      const forged = issueChannelToken(USER, "un-autre-secret-de-plus-de-32-caracteres!", clock, SCOPE);
       const socket = connect(forged);
       await expect(expectRejection(socket)).resolves.toBeInstanceOf(Error);
     });
 
     it("refuse un jeton expiré", async () => {
-      const token = issueChannelToken(USER, SECRET, clock, 1_000);
+      const token = issueChannelToken(USER, SECRET, clock, SCOPE, 1_000);
       clock += 2_000;
       const socket = connect(token);
       await expect(expectRejection(socket)).resolves.toBeInstanceOf(Error);
     });
 
     it("limite le nombre de connexions par utilisateur", async () => {
-      const token = issueChannelToken(USER, SECRET, clock);
+      const token = issueChannelToken(USER, SECRET, clock, SCOPE);
       const first = connect(token);
       await waitFor(first, "welcome");
       const second = connect(token);
@@ -187,11 +196,11 @@ describe("canal temps réel", () => {
     });
 
     it("compte les connexions par utilisateur, pas globalement", async () => {
-      const a = connect(issueChannelToken(USER, SECRET, clock));
+      const a = connect(issueChannelToken(USER, SECRET, clock, SCOPE));
       await waitFor(a, "welcome");
-      const b = connect(issueChannelToken(OTHER_USER, SECRET, clock));
+      const b = connect(issueChannelToken(OTHER_USER, SECRET, clock, SCOPE));
       await waitFor(b, "welcome");
-      const c = connect(issueChannelToken(OTHER_USER, SECRET, clock));
+      const c = connect(issueChannelToken(OTHER_USER, SECRET, clock, SCOPE));
       await waitFor(c, "welcome");
 
       expect(channel.clientCount()).toBe(3);
@@ -204,7 +213,7 @@ describe("canal temps réel", () => {
   describe("flux de cours", () => {
     it("achemine un tick fournisseur jusqu'au client", async () => {
       // C'est le critère d'acceptation du Lot 05.
-      const socket = connect(issueChannelToken(USER, SECRET, clock));
+      const socket = connect(issueChannelToken(USER, SECRET, clock, SCOPE));
       await waitFor(socket, "welcome");
 
       const quotes = waitFor(socket, "quotes");
@@ -221,7 +230,7 @@ describe("canal temps réel", () => {
     });
 
     it("répond pong à un ping", async () => {
-      const socket = connect(issueChannelToken(USER, SECRET, clock));
+      const socket = connect(issueChannelToken(USER, SECRET, clock, SCOPE));
       await waitFor(socket, "welcome");
       const pong = waitFor(socket, "pong");
       socket.send(JSON.stringify({ type: "ping" }));
@@ -230,7 +239,7 @@ describe("canal temps réel", () => {
     });
 
     it("rejette un message malformé sans exposer la structure attendue", async () => {
-      const socket = connect(issueChannelToken(USER, SECRET, clock));
+      const socket = connect(issueChannelToken(USER, SECRET, clock, SCOPE));
       await waitFor(socket, "welcome");
       const error = waitFor(socket, "error");
       socket.send("ceci n'est pas du JSON");
@@ -244,7 +253,7 @@ describe("canal temps réel", () => {
     });
 
     it("rejette un abonnement dont la forme est invalide", async () => {
-      const socket = connect(issueChannelToken(USER, SECRET, clock));
+      const socket = connect(issueChannelToken(USER, SECRET, clock, SCOPE));
       await waitFor(socket, "welcome");
       const error = waitFor(socket, "error");
       socket.send(JSON.stringify({ type: "subscribe", symbols: "AAPL" }));
@@ -253,9 +262,94 @@ describe("canal temps réel", () => {
     });
   });
 
+  /**
+   * Le périmètre du jeton.
+   *
+   * Le jeton prouvait *qui* était l'appelant, mais rien ne limitait *ce à quoi*
+   * il pouvait s'abonner : un utilisateur authentifié pouvait demander
+   * n'importe quel symbole et se servir de la passerelle comme d'un relais de
+   * données de marché, sur la clé d'API de l'exploitant. La route REST
+   * `/api/quotes` refuse pour cette raison toute liste d'identifiants venant du
+   * navigateur ; ces cas vérifient que le canal temps réel tient la même ligne.
+   */
+  describe("périmètre du jeton", () => {
+    it("refuse un symbole hors périmètre, et le nomme", async () => {
+      const socket = connect(issueChannelToken(USER, SECRET, clock, ["AAPL"]));
+      await waitFor(socket, "welcome");
+
+      const error = waitFor(socket, "error");
+      socket.send(JSON.stringify({ type: "subscribe", symbols: ["AAPL", "TSLA"] }));
+
+      const message = await error;
+      expect(message).toMatchObject({ type: "error", code: "OUT_OF_SCOPE" });
+      if (message.type === "error") {
+        // Nommé, pour que l'utilisateur sache laquelle de ses lignes n'est pas
+        // suivie. Un refus muet serait indiscernable d'un titre sans échange.
+        expect(message.message).toContain("TSLA");
+      }
+      socket.close();
+    });
+
+    /*
+     * Le refus est **global**, pas sélectif : la demande entière est rejetée
+     * plutôt que réduite aux symboles autorisés. Accepter la partie valide
+     * laisserait le client convaincu d'être abonné à tout.
+     */
+    it("n'abonne rien du tout quand une partie de la demande sort du périmètre", async () => {
+      const socket = connect(issueChannelToken(USER, SECRET, clock, ["AAPL"]));
+      await waitFor(socket, "welcome");
+
+      const error = waitFor(socket, "error");
+      socket.send(JSON.stringify({ type: "subscribe", symbols: ["AAPL", "TSLA"] }));
+      await error;
+
+      // Aucun cours ne doit arriver : AAPL non plus n'a pas été souscrit.
+      const quotes = await Promise.race([
+        waitFor(socket, "quotes").then(() => "reçu" as const),
+        new Promise<"silence">((resolve) => setTimeout(() => resolve("silence"), 300)),
+      ]);
+      expect(quotes).toBe("silence");
+      socket.close();
+    });
+
+    it("accepte un abonnement entièrement compris dans le périmètre", async () => {
+      const socket = connect(issueChannelToken(USER, SECRET, clock, ["AAPL", "MSFT"]));
+      await waitFor(socket, "welcome");
+
+      const quotes = waitFor(socket, "quotes");
+      socket.send(JSON.stringify({ type: "subscribe", symbols: ["AAPL"] }));
+      await expect(quotes).resolves.toMatchObject({ type: "quotes" });
+      socket.close();
+    });
+
+    it("un jeton sans périmètre n'autorise rien", async () => {
+      const socket = connect(issueChannelToken(USER, SECRET, clock, []));
+      await waitFor(socket, "welcome");
+
+      const error = waitFor(socket, "error");
+      socket.send(JSON.stringify({ type: "subscribe", symbols: ["AAPL"] }));
+      await expect(error).resolves.toMatchObject({ code: "OUT_OF_SCOPE" });
+      socket.close();
+    });
+
+    /*
+     * Le périmètre est couvert par la signature : le modifier invalide le
+     * jeton. Sans cela, il suffirait de réécrire la liste dans le jeton reçu.
+     */
+    it("un périmètre trafiqué invalide le jeton", async () => {
+      const token = issueChannelToken(USER, SECRET, clock, ["AAPL"]);
+      const parts = token.split(".");
+      const forgedScope = Buffer.from("AAPL,TSLA", "utf8").toString("base64url");
+      const forged = `${parts[0]}.${parts[1]}.${forgedScope}.${parts[3]}`;
+
+      const socket = connect(forged);
+      await expect(expectRejection(socket)).resolves.toBeInstanceOf(Error);
+    });
+  });
+
   describe("étanchéité des secrets", () => {
     it("aucun message du canal ne contient le secret partagé", async () => {
-      const socket = connect(issueChannelToken(USER, SECRET, clock));
+      const socket = connect(issueChannelToken(USER, SECRET, clock, SCOPE));
       const received: string[] = [];
       socket.on("message", (raw: Buffer) => received.push(raw.toString("utf8")));
 
@@ -270,7 +364,7 @@ describe("canal temps réel", () => {
     });
 
     it("le message de bienvenue annonce la fraîcheur réellement disponible", async () => {
-      const socket = connect(issueChannelToken(USER, SECRET, clock));
+      const socket = connect(issueChannelToken(USER, SECRET, clock, SCOPE));
       const welcome = await waitFor(socket, "welcome");
       // L'interface doit le savoir avant d'afficher quoi que ce soit.
       expect(welcome).toMatchObject({ bestFreshness: "MANUAL" });
@@ -280,7 +374,7 @@ describe("canal temps réel", () => {
 
   describe("cycle de vie", () => {
     it("décompte le client à sa déconnexion", async () => {
-      const socket = connect(issueChannelToken(USER, SECRET, clock));
+      const socket = connect(issueChannelToken(USER, SECRET, clock, SCOPE));
       await waitFor(socket, "welcome");
       expect(channel.clientCount()).toBe(1);
 
@@ -292,7 +386,7 @@ describe("canal temps réel", () => {
     it("refuse une connexion sur un autre chemin que /live", async () => {
       const address = httpServer.address() as AddressInfo;
       const socket = new WebSocket(`ws://127.0.0.1:${address.port}/autre`, [
-        `portfolio-lab.token.${issueChannelToken(USER, SECRET, clock)}`,
+        `portfolio-lab.token.${issueChannelToken(USER, SECRET, clock, SCOPE)}`,
       ]);
       await expect(expectRejection(socket)).resolves.toBeInstanceOf(Error);
     });

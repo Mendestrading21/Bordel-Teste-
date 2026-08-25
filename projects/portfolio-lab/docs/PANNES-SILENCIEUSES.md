@@ -1,13 +1,14 @@
 # Les pannes silencieuses, et comment on les a fermées
 
-Six défauts de la même famille ont été trouvés dans ce dépôt. Aucun ne
+Sept défauts ont été trouvés dans ce dépôt, dont six de la même famille. Aucun ne
 provoquait d'erreur, aucun n'apparaissait à la compilation, aucun n'était
 visible à l'exécution. La configuration paraissait correcte, l'écran restait
 muet, et rien nulle part ne reliait les deux.
 
-Ce document existe pour qu'un septième ne passe pas.
+Une septième, de nature différente, est décrite plus bas : elle ne concernait pas
+un chemin manquant mais un chemin **trop ouvert**.
 
-## Les six
+## Les six premières
 
 | # | Défaut | Conséquence |
 | --- | --- | --- |
@@ -70,6 +71,48 @@ réintroduits un par un sont tous rattrapés :
 | retirer `optionChain()` du routeur | 1 test échoue |
 | rendre à Massive son `optionChains: true` | 1 test échoue |
 | retirer Finnhub de la fabrique | 2 tests échouent |
+
+## Une septième, d'une autre nature
+
+Le garde-fou ci-dessus vérifie que le chemin existe. Il ne dit rien de ce qui
+est **autorisé** à l'emprunter — et c'est là qu'un septième défaut se cachait,
+plus grave que les six premiers.
+
+Le jeton du canal temps réel prouvait *qui* était l'appelant. Rien ne limitait
+*ce à quoi* il pouvait s'abonner. Un utilisateur authentifié pouvait demander
+n'importe quel symbole, et se servir de la passerelle comme d'un relais de
+données de marché sur la clé d'API de l'exploitant.
+
+Ce qui rendait la chose difficile à voir : la route REST `/api/quotes` refuse
+délibérément toute liste d'identifiants venant du navigateur, et dérive la
+liste du portefeuille côté serveur. Deux canaux du même produit, deux postures
+opposées, et aucun test ne les comparait — parce que rien n'oblige deux
+fichiers à se ressembler.
+
+**Le correctif.** Le jeton porte désormais un périmètre, scellé par la même
+signature : `userId.expiresAt.périmètre.signature`. L'application web le dérive
+du portefeuille au moment de l'émission ; la passerelle refuse tout symbole qui
+n'y figure pas, en le nommant. Un jeton à trois parties — celui d'avant — est
+rejeté comme malformé, sans compatibilité ascendante : l'accepter laisserait la
+faille ouverte à quiconque en détient encore un valide.
+
+Le périmètre voyage dans le jeton plutôt que d'être relu en base : la passerelle
+est un processus distinct sans accès à la base de données, et lui en donner un
+pour cette seule vérification élargirait bien plus sa surface que ne le coûte un
+jeton un peu plus long.
+
+**Ce qui l'empêche de revenir.** L'application web et la passerelle ne partagent
+aucun code — la première ne dépend pas de la seconde. `protocol-sync.test.ts`
+lit donc les deux sources et exige qu'elles s'accordent sur l'alphabet des
+symboles, le séparateur, l'encodage, et sur le fait que le périmètre vienne du
+portefeuille et non de la requête.
+
+Une leçon de cette septième : la première version de ce test cherchait la chaîne
+`parts.length !== 4` dans le source de la passerelle. Elle survivait à un
+`parts.length !== 3 && parts.length !== 4`, qui rouvrait pourtant la faille en
+grand. La vérification est désormais **comportementale** — un jeton à trois
+parties correctement signé est présenté à `verifyChannelToken`, qui doit le
+refuser. Un test qui lit du texte ne vaut que ce que vaut son motif.
 
 ## Ce que ce garde-fou ne couvre pas
 
