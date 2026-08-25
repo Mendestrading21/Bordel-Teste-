@@ -12,6 +12,9 @@ import {
 } from "@portfolio-lab/domain";
 import type { QuoteFreshness } from "@portfolio-lab/domain";
 
+import { LiveRefreshStatus } from "./live-refresh-status";
+import { useQuoteRefresh } from "@/lib/live/use-quote-refresh";
+
 import { FreshnessBadge } from "./freshness-badge";
 import { InstrumentAvatar } from "./instrument-avatar";
 import { Money, Percent, Unavailable } from "./money";
@@ -25,6 +28,8 @@ import { Card, cx } from "./ui";
  */
 export type PositionRow = {
   readonly positionId: string;
+  /** Identifiant de l'instrument, clé d'appariement avec les cours rafraîchis. */
+  readonly instrumentId: string;
   readonly instrumentName: string;
   readonly symbol: string | null;
   readonly assetType: AssetType;
@@ -79,6 +84,17 @@ export function PositionsList({
 }>): React.JSX.Element {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<AssetType | "ALL">("ALL");
+
+  /*
+   * Les cours rafraîchis complètent l'affichage, ils ne le remplacent pas.
+   *
+   * La valeur de marché reste celle calculée par le serveur : la reconvertir
+   * ici demanderait la quantité, le multiplicateur et un taux de change, et un
+   * taux inventé dans le navigateur produirait un total faux avec l'aplomb
+   * d'un total juste. Le cours unitaire, lui, se lit sans conversion — c'est
+   * exactement ce qu'on affiche, avec sa fraîcheur propre.
+   */
+  const { quotes, state: liveState } = useQuoteRefresh();
 
   /**
    * `false` tant que React n'écoute pas encore.
@@ -206,6 +222,8 @@ export function PositionsList({
         <p className="shrink-0">Montants en {baseCurrency}</p>
       </div>
 
+      <LiveRefreshStatus state={liveState} />
+
       {commonFreshness === null ? null : (
         <p className="mt-1 text-xs text-tertiary" data-pl-common-freshness={commonFreshness}>
           Sauf badge contraire : {QUOTE_FRESHNESS_LABEL[commonFreshness].toLowerCase()}.
@@ -262,6 +280,31 @@ export function PositionsList({
                  * Répété à l'identique sur vingt lignes il cesse d'être lu,
                  * et c'est justement la ligne discordante qu'il faut voir.
                  */}
+                {(() => {
+                  const live = quotes.get(row.instrumentId);
+                  if (live === undefined) return null;
+                  return (
+                    <div className="mt-1.5 flex items-center gap-2 pl-12 text-xs">
+                      <span className="text-tertiary">Cours</span>
+                      <span className="text-secondary" data-pl-live-price={row.instrumentId}>
+                        <Money value={live.price} currency={live.currency} bare />
+                      </span>
+                      {/*
+                       * La fraîcheur du cours unitaire est la sienne, jamais
+                       * celle de la valorisation au-dessus : les deux peuvent
+                       * légitimement différer, et les confondre laisserait
+                       * croire que le total a bougé alors que seul le cours
+                       * unitaire vient d'arriver.
+                       */}
+                      <FreshnessBadge
+                        freshness={live.freshness}
+                        asOf={live.asOf}
+                        provider={live.provider}
+                      />
+                    </div>
+                  );
+                })()}
+
                 {row.freshness === commonFreshness ? null : (
                   <div className="mt-1.5 pl-12">
                     <FreshnessBadge

@@ -26,6 +26,25 @@ normalisés.
 
 1. Créer un compte sur <https://finnhub.io/register>.
 2. Copier la clé affichée sur le tableau de bord.
+3. Renseigner **deux** variables d'environnement, pas une :
+
+   ```
+   FINNHUB_ENABLED=true
+   FINNHUB_API_KEY=votre-clé
+   ```
+
+   `FINNHUB_ENABLED` est indispensable : sans elle, la clé est ignorée et aucun
+   cours n'arrive, sans le moindre message d'erreur.
+
+4. Facultatif, et seulement si vous souscrivez un plan payant :
+
+   ```
+   FINNHUB_PLAN=paid
+   ```
+
+   Le plan n'est jamais déduit de la clé — une clé gratuite et une clé payante
+   se ressemblent trait pour trait, et en déduire « temps réel » afficherait
+   « en direct » sur du différé.
 
 Ce que le plan gratuit couvre réellement :
 
@@ -83,9 +102,30 @@ puis **Partager → Sur l'écran d'accueil**.
 Ouvrir **Réglages → Données de marché**. Finnhub doit y apparaître comme
 interrogeable, et la clé attendue marquée « présente dans l'environnement ».
 
-Puis ouvrir une position américaine : le badge doit indiquer la fraîcheur
-réelle. S'il affiche « Manuel », le cours vient de votre saisie et non du
+Puis ouvrir **Positions**. Sous le compteur de lignes, une phrase d'état dit
+exactement ce qui s'est passé :
+
+| Ce qui s'affiche                        | Ce que ça veut dire                             |
+| --------------------------------------- | ----------------------------------------------- |
+| « 4 cours à jour à 09:12 — source : … » | les cours arrivent réellement                   |
+| « Aucun fournisseur … n'est configuré » | `FINNHUB_ENABLED` ou la clé manque              |
+| « 2 sans cours (…) »                    | ces lignes ne sont pas couvertes, et le motif suit |
+
+Les lignes cotées affichent en plus leur cours unitaire avec son propre badge de
+fraîcheur. S'il affiche « Manuel », le cours vient de votre saisie et non du
 fournisseur — l'écran ne maquille jamais l'un en l'autre.
+
+### Chaque instrument doit porter un identifiant
+
+Un instrument sans ligne dans `instrument_identifiers` n'est **jamais** résolu
+par son nom : il apparaît comme « sans cours », avec ce motif. C'est délibéré.
+Chercher `AAPL` chez un fournisseur renvoie aussi `AAPU`, `AAPB`, `AAPD`, des
+produits à levier qui ne sont pas Apple ; deviner reviendrait à valoriser un
+portefeuille avec le cours d'un autre titre.
+
+Une option se désigne par son symbole OSI et par rien d'autre. Sans OSI, elle
+reste en saisie manuelle — se rabattre sur le ticker du sous-jacent donnerait le
+cours de l'action au lieu de celui du contrat.
 
 ## Ce qui reste en saisie manuelle
 

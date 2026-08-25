@@ -51,6 +51,7 @@ export default async function PositionsPage(): Promise<React.JSX.Element> {
     if (value === undefined) {
       return {
         positionId: position.positionId,
+        instrumentId: position.instrumentId,
         instrumentName: position.instrumentName,
         symbol: position.shortName,
         assetType: position.assetType as AssetType,
@@ -72,6 +73,7 @@ export default async function PositionsPage(): Promise<React.JSX.Element> {
 
     return {
       positionId: position.positionId,
+      instrumentId: position.instrumentId,
       instrumentName: position.instrumentName,
       symbol: position.shortName,
       assetType: position.assetType as AssetType,

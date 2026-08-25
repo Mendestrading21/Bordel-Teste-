@@ -128,6 +128,118 @@ test.describe("tableau de bord", () => {
 });
 
 test.describe("liste des positions", () => {
+  /*
+   * Sans fournisseur configuré, l'écran doit le **dire**.
+   *
+   * C'est la régression que ce test verrouille : la scrutation des cours
+   * pourrait échouer, être désactivée, ou n'avoir jamais été branchée, et la
+   * liste continuerait d'afficher des valeurs saisies à la main sans que rien
+   * ne distingue ce cas d'un portefeuille réellement à jour.
+   */
+  test("annonce l'absence de fournisseur de cours au lieu de se taire", async ({ page }) => {
+    await page.goto("/positions");
+
+    const status = page.locator("[data-pl-live]");
+    await expect(status).toHaveAttribute("data-pl-live", "disabled");
+    await expect(status).toContainText("Aucun fournisseur de cours");
+  });
+
+  /*
+   * Le pendant du test précédent : aucun cours ne doit être affiché tant
+   * qu'aucun fournisseur n'en a servi. Un prix apparu sans source serait une
+   * donnée inventée.
+   */
+  test("n'affiche aucun cours rafraîchi sans fournisseur", async ({ page }) => {
+    await page.goto("/positions");
+    await expect(page.locator("[data-pl-live-price]")).toHaveCount(0);
+  });
+
+  /*
+   * Le chemin réellement neuf : un cours servi par la route atteint-il l'écran,
+   * avec sa fraîcheur et sa source ?
+   *
+   * La réponse HTTP est simulée ici, à dessein. Le trajet serveur — SQL,
+   * identifiants, routeur, adaptateur — est vérifié par la suite d'intégration
+   * sur un vrai PostgreSQL ; ce test-ci couvre le dernier segment, celui du
+   * rendu, qu'aucune vérification serveur ne peut atteindre. Appeler un
+   * fournisseur réel depuis un test le rendrait dépendant du marché, du réseau
+   * et d'un quota.
+   */
+  test("affiche le cours rafraîchi, sa fraîcheur et sa source", async ({ page }) => {
+    const instrumentId = "d0000000-0000-4000-8000-000000000001";
+
+    await page.route("**/api/quotes", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "ok",
+          refreshedAt: "2026-08-25T06:41:30.000Z",
+          providers: ["finnhub"],
+          quotes: [
+            {
+              instrumentId,
+              price: "309.54",
+              currency: "USD",
+              freshness: "DELAYED",
+              priceType: "LAST_TRADE",
+              asOf: "2026-08-25T06:41:30.000Z",
+              provider: "finnhub",
+            },
+          ],
+          unquoted: [],
+        }),
+      });
+    });
+
+    await page.goto("/positions");
+
+    const price = page.locator(`[data-pl-live-price="${instrumentId}"]`);
+    await expect(price).toContainText("309.54");
+
+    // La source et le niveau de fraîcheur sont annoncés, jamais supposés.
+    await expect(page.locator("[data-pl-live]")).toContainText("source : finnhub");
+
+    /*
+     * « Différé » et non « Direct ». Un plan gratuit sert du différé, et
+     * afficher « en direct » par-dessus serait exactement le mensonge que tout
+     * l'étage de fraîcheur existe pour empêcher.
+     */
+    const badge = price.locator("xpath=following-sibling::*[@data-pl-freshness]");
+    await expect(badge).toHaveAttribute("data-pl-freshness", "DELAYED");
+  });
+
+  /*
+   * Un instrument sans cours doit être compté et motivé, jamais escamoté.
+   */
+  test("annonce combien de lignes restent sans cours, et pourquoi", async ({ page }) => {
+    await page.route("**/api/quotes", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "ok",
+          refreshedAt: "2026-08-25T06:41:30.000Z",
+          providers: ["finnhub"],
+          quotes: [],
+          unquoted: [
+            {
+              instrumentId: "d0000000-0000-4000-8000-000000000006",
+              reason: "Cours indisponible : instrument inconnu du fournisseur.",
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto("/positions");
+
+    const status = page.locator("[data-pl-live]");
+    await expect(status).toContainText("Aucun cours obtenu");
+    await expect(status).toContainText("1 sans cours");
+    await expect(status).toContainText("inconnu du fournisseur");
+  });
+
   test("affiche les six positions de démonstration", async ({ page }) => {
     await page.goto("/positions");
     // Scopé au contenu principal : la barre de navigation est elle aussi une
