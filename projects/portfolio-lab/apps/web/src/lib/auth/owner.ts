@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import {
   MIN_SESSION_SECRET_LENGTH,
@@ -171,4 +172,32 @@ export function decideCaller(
 export async function currentUserId(mode?: DataMode): Promise<string | null> {
   const caller = await resolveCaller(mode ?? resolveDataMode());
   return caller.kind === "anonymous" ? null : caller.userId;
+}
+
+/**
+ * Exige une session, ou renvoie vers l'écran de connexion.
+ *
+ * À appeler en **première ligne** de chaque page qui lit des données. Cinq
+ * pages ne vérifiaient rien : elles ne fuyaient pas — `currentUserId` renvoyait
+ * `null` et RLS bloquait le reste — mais elles affichaient « aucune position »
+ * à quelqu'un de simplement déconnecté, qui pouvait croire ses données
+ * perdues. Et surtout, leur innocuité tenait au hasard : rien n'empêchait la
+ * page suivante de lire une donnée avant de vérifier quoi que ce soit.
+ *
+ * `route-protection.test.ts` énumère les pages et refuse celle qui oublierait
+ * cet appel : c'est ce qui transforme cinq précautions individuelles en une
+ * garantie.
+ */
+export async function requireOwner(): Promise<string> {
+  const caller = await resolveCaller();
+  if (caller.kind === "anonymous") {
+    /*
+     * `redirect` lève : rien de ce qui suit dans la page appelante ne
+     * s'exécute. C'est la propriété qui rend cet appel suffisant à lui seul —
+     * un garde qui renverrait un booléen laisserait la page libre de
+     * l'ignorer.
+     */
+    redirect("/connexion");
+  }
+  return caller.userId;
 }

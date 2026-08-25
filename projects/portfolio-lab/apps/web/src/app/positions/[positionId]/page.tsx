@@ -18,6 +18,7 @@ import { FreshnessBadge } from "@/components/freshness-badge";
 import { Money, Percent, Quantity } from "@/components/money";
 import { Card, Chip, Stat } from "@/components/ui";
 import { loadPortfolioView } from "@/lib/data/portfolio";
+import { requireOwner } from "@/lib/auth/owner";
 import { unitPriceFromValue } from "@/lib/unit-price";
 
 export const metadata: Metadata = { title: "Détail de la position" };
@@ -39,6 +40,7 @@ function Row({
 export default async function PositionDetailPage({
   params,
 }: Readonly<{ params: Promise<{ positionId: string }> }>): Promise<React.JSX.Element> {
+  await requireOwner();
   const { positionId } = await params;
   const view = await loadPortfolioView();
 

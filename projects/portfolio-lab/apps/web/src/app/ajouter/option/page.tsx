@@ -17,6 +17,7 @@ import { DemoBanner } from "@/components/demo-banner";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { chainNavigation, selectContract } from "@/lib/data/options";
+import { requireOwner } from "@/lib/auth/owner";
 import { loadPortfolioView } from "@/lib/data/portfolio";
 
 export const metadata: Metadata = { title: "Ajouter une option" };
@@ -99,6 +100,7 @@ function Row({
 export default async function AjouterOptionPage({
   searchParams,
 }: Readonly<{ searchParams: SearchParams }>): Promise<React.JSX.Element> {
+  await requireOwner();
   const params = await searchParams;
   const view = await loadPortfolioView();
 

@@ -188,6 +188,48 @@ appartiennent en base à l'ancien identifiant.
 `FINNHUB_API_KEY` n'est **jamais** préfixée `NEXT_PUBLIC_` : ce préfixe
 enverrait la clé dans le navigateur, où n'importe quel visiteur la lirait.
 
+## 3 bis. Vos premières lignes
+
+Une base neuve ne contient **aucun instrument** : c'est normal, et l'écran
+d'ajout le prend en compte. Il propose directement « Nouvel instrument » au
+lieu d'un sélecteur vide.
+
+Pour chaque titre que vous détenez :
+
+1. **Nom** — celui qui vous parle. « Apple Inc », « Ma prévoyance 3a ».
+2. **Classe** et **devise** — elles déterminent comment la ligne est valorisée
+   et convertie.
+3. **Identifiant pour les cours** — facultatif, mais c'est lui qui décide de
+   tout :
+
+| Identifiant | Ce qui se passe |
+| --- | --- |
+| Ticker, ISIN ou symbole fournisseur | le cours est cherché automatiquement |
+| Aucun | le cours reste celui que vous saisissez, et l'écran le dit |
+
+Le nom seul ne suffit jamais à désigner un titre. Chercher « AAPL » chez un
+fournisseur renvoie aussi AAPU, AAPB et AAPD — des produits à effet de levier
+qui ne sont pas Apple. C'est pourquoi l'application ne devine jamais : sans
+identifiant, elle déclare la ligne non cotable au lieu d'aller chercher un
+cours au hasard.
+
+### Quel identifiant choisir
+
+- **Ticker** pour une action ou un ETF, avec le code de place si le titre est
+  coté ailleurs qu'aux États-Unis (`NESN` + `XSWX`).
+- **ISIN** pour un fonds de placement, ou quand vous l'avez sous la main : il
+  est mondialement unique, contrairement au ticker.
+- **Symbole fournisseur** quand vous savez déjà comment votre fournisseur
+  nomme le titre (`AAPL.US` chez EODHD). Le nom du fournisseur est alors
+  obligatoire : un symbole propriétaire n'existe que dans son référentiel.
+
+### Les biens sans cours
+
+Un appartement, une part de société, un objet de collection : créez-les sans
+identifiant, en classe « Autre ». Vous saisissez leur valeur, l'application la
+consolide avec le reste et affiche « Manuel » — elle ne prétend jamais l'avoir
+obtenue d'un marché.
+
 ## 4. Sur l'iPhone
 
 1. Ouvrir l'adresse dans **Safari**. Chrome et Firefox sur iOS ne proposent pas

@@ -16,6 +16,7 @@ import { Reconciliation } from "@/components/reconciliation";
 import { SnapshotForm } from "@/components/snapshot-form";
 import { WealthHistory } from "@/components/wealth-history";
 import { loadAnalytics } from "@/lib/data/analytics";
+import { requireOwner } from "@/lib/auth/owner";
 import { historyPeriods } from "@/lib/history-periods";
 import { loadPortfolioView } from "@/lib/data/portfolio";
 
@@ -74,6 +75,7 @@ function AllocationList({
 }
 
 export default async function AnalysePage(): Promise<React.JSX.Element> {
+  await requireOwner();
   const view = await loadPortfolioView();
   const { valuation } = view;
 

@@ -79,3 +79,59 @@ test.describe("connexion du propriétaire", () => {
     await expect(page.getByText("Patrimoine privé")).toBeVisible();
   });
 });
+
+/**
+ * Redirection des écrans protégés.
+ *
+ * Cinq pages ne verifiaient rien. Elles ne fuyaient pas — l'identite etait
+ * nulle et RLS bloquait le reste — mais elles affichaient « aucune position »
+ * a quelqu'un de simplement deconnecte, qui pouvait croire ses donnees
+ * perdues. Ces parcours verifient le comportement reel dans un navigateur, la
+ * ou la suite unitaire ne verifie que la presence de la garde dans le source.
+ */
+test.describe("écrans protégés", () => {
+  const PROTECTED = [
+    "/positions",
+    "/analyse",
+    "/fonds",
+    "/ajouter",
+    "/reglages",
+    "/positions/d0000000-0000-4000-8000-000000000001",
+  ] as const;
+
+  for (const route of PROTECTED) {
+    test(`${route} renvoie vers la connexion sans session`, async ({ page }) => {
+      await page.goto(route);
+
+      await expect(page).toHaveURL(/\/connexion/u);
+      await expect(page.getByLabel("Phrase secrète")).toBeVisible();
+    });
+  }
+
+  test("aucune donnée de portefeuille n'apparaît avant connexion", async ({ page }) => {
+    for (const route of PROTECTED) {
+      const response = await page.goto(route);
+      const body = (await page.textContent("body")) ?? "";
+
+      // Ni le nom d'un instrument, ni un montant consolidé.
+      expect(body, `${route} laisse voir un instrument`).not.toContain("Démo Industrie");
+      expect(response?.status(), `${route} répond en erreur`).toBeLessThan(400);
+    }
+  });
+
+  test("une fois connecté, les écrans s'ouvrent", async ({ page }) => {
+    await page.goto("/connexion");
+    await page.getByLabel("Phrase secrète").fill(PASSPHRASE);
+    await page.getByRole("button", { name: "Entrer" }).click();
+    await page.waitForURL("**/");
+
+    for (const route of ["/positions", "/analyse", "/reglages"] as const) {
+      await page.goto(route);
+      // La redirection ne doit pas se déclencher une fois la session ouverte :
+      // une garde trop zélée est aussi cassée qu'une garde absente.
+      await expect(page, `${route} redirige alors que la session est ouverte`).not.toHaveURL(
+        /\/connexion/u,
+      );
+    }
+  });
+});
