@@ -118,3 +118,48 @@ describe("protocole client et passerelle", () => {
     }
   });
 });
+
+/**
+ * Le canal atteint-il réellement l'écran ?
+ *
+ * `useLiveQuotes` et `LiveIndicator` sont restés longtemps écrits, testés, et
+ * importés par **aucun** écran : du code mort qui ressemblait à une
+ * fonctionnalité. C'est la même famille de défaut que celle fermée par
+ * `reachability.test.ts` côté fournisseurs — déclaré d'un côté, inatteignable
+ * de l'autre, sans que rien ne relie les deux.
+ */
+describe("le canal temps réel est branché", () => {
+  const positionsList = readFileSync(
+    fileURLToPath(new URL("../../components/positions-list.tsx", import.meta.url)),
+    "utf8",
+  );
+
+  it("un écran consomme le flux", () => {
+    expect(positionsList).toContain("useLiveQuotes()");
+  });
+
+  it("l'état de la connexion est affiché", () => {
+    // Une application dont le flux est coupé et qui continue d'afficher les
+    // derniers cours sans le dire ment par omission.
+    expect(positionsList).toContain("LiveIndicator");
+  });
+
+  it("le hook ne reçoit aucune liste de symboles", () => {
+    /*
+     * Accepter une liste de l'appelant rouvrirait ce que le périmètre du jeton
+     * a fermé : un client capable de demander n'importe quel cours sur la clé
+     * de l'exploitant.
+     */
+    const hook = readFileSync(
+      fileURLToPath(new URL("./use-live-quotes.ts", import.meta.url)),
+      "utf8",
+    );
+    expect(hook).toContain("export function useLiveQuotes(): UseLiveQuotesResult");
+  });
+
+  it("l'émetteur rend les abonnements avec leur instrument", () => {
+    // Le flux ne connaît que des symboles, l'écran que des instruments : sans
+    // cette table, un cours reçu ne se rattache à aucune ligne.
+    expect(gatewayTokenRoute).toContain("subscriptions");
+  });
+});

@@ -188,12 +188,34 @@ describe.skipIf(!hasTestDatabase)("Row Level Security", () => {
       expect(rows.length).toBeGreaterThan(0);
     });
 
-    it("ne peut pas écrire dans le référentiel de marché", async () => {
+    /*
+     * Le référentiel d'instruments est **saisi par l'utilisateur** : sans lui,
+     * aucune position ne peut être créée sur une base neuve. L'écriture y est
+     * donc ouverte, et cette suite vérifie qu'elle reste limitée à une identité
+     * établie.
+     */
+    it("peut créer un instrument", async () => {
       await expect(
         db.asUser(ALICE, async (client) => {
           await client.query(
             `insert into instruments (asset_type, name, primary_currency)
-             values ('STOCK', 'Instrument injecté', 'CHF')`,
+             values ('STOCK', 'Instrument saisi', 'CHF')`,
+          );
+        }),
+      ).resolves.not.toThrow();
+    });
+
+    /*
+     * Les cours, eux, restent inaccessibles en écriture. Un client capable
+     * d'inscrire un cours fausserait sa propre valorisation, et aucun écran ne
+     * pourrait distinguer ce chiffre d'un cours de marché.
+     */
+    it("ne peut pas écrire un cours dans le référentiel de marché", async () => {
+      await expect(
+        db.asUser(ALICE, async (client) => {
+          await client.query(
+            `insert into fx_rates (base_currency, quote_currency, rate, as_of, provider)
+             values ('USD', 'CHF', 9.99, now(), 'injection')`,
           );
         }),
       ).rejects.toThrow();

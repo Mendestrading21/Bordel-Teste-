@@ -23,10 +23,25 @@ describe.skipIf(!hasTestDatabase)("couverture RLS du schéma", () => {
   ] as const;
 
   /** Référentiel partagé : lecture authentifiée, écriture serveur uniquement. */
+  /**
+   * Référentiel que l'utilisateur **saisit** lui-même.
+   *
+   * Sans instrument, aucune position ne peut être créée : sur une base neuve
+   * la table est vide, et une politique de lecture seule rendait l'application
+   * inutilisable dès la première prise en main. L'écriture est donc ouverte à
+   * l'utilisateur authentifié, et à lui seul.
+   */
+  const AUTHORED_TABLES = ["instruments", "instrument_identifiers", "option_contracts"] as const;
+
+  /**
+   * Référentiel **alimenté par le serveur**, jamais par le navigateur.
+   *
+   * Cours, taux, historiques : leur ingestion passe par `service_role`, qui
+   * contourne RLS. Ouvrir l'écriture ici laisserait un client inscrire un
+   * cours de son choix et fausser sa propre valorisation — sans qu'aucun
+   * écran ne puisse le distinguer d'un cours de marché.
+   */
   const SHARED_TABLES = [
-    "instruments",
-    "instrument_identifiers",
-    "option_contracts",
     "provider_mappings",
     "current_quotes",
     "daily_price_history",
@@ -84,6 +99,7 @@ describe.skipIf(!hasTestDatabase)("couverture RLS du schéma", () => {
     const flags = await tableFlags();
     const classified = new Set<string>([
       ...USER_TABLES,
+      ...AUTHORED_TABLES,
       ...SHARED_TABLES,
       ...SERVER_ONLY_TABLES,
       ...EXEMPT_TABLES,
@@ -96,7 +112,7 @@ describe.skipIf(!hasTestDatabase)("couverture RLS du schéma", () => {
     ).toEqual([]);
   });
 
-  it.each([...USER_TABLES, ...SHARED_TABLES, ...SERVER_ONLY_TABLES])(
+  it.each([...USER_TABLES, ...AUTHORED_TABLES, ...SHARED_TABLES, ...SERVER_ONLY_TABLES])(
     "%s a RLS activée",
     async (table) => {
       const flags = await tableFlags();
@@ -104,7 +120,7 @@ describe.skipIf(!hasTestDatabase)("couverture RLS du schéma", () => {
     },
   );
 
-  it.each([...USER_TABLES, ...SHARED_TABLES, ...SERVER_ONLY_TABLES])(
+  it.each([...USER_TABLES, ...AUTHORED_TABLES, ...SHARED_TABLES, ...SERVER_ONLY_TABLES])(
     "%s a RLS forcée, y compris pour le propriétaire des tables",
     async (table) => {
       // Sans `force`, le rôle qui possède les tables — celui sous lequel
@@ -144,6 +160,40 @@ describe.skipIf(!hasTestDatabase)("couverture RLS du schéma", () => {
     // contourne RLS. Le navigateur ne peut donc jamais inscrire un cours.
     expect(commands).toEqual(["r"]);
   });
+
+  it.each(AUTHORED_TABLES)(
+    "%s accepte la saisie mais jamais la suppression d'un référencé",
+    async (table) => {
+      const commands = await db.asOwner(async (client) => {
+        const { rows } = await client.query<{ cmd: string }>(
+          `select p.polcmd::text as cmd
+         from pg_policy p join pg_class c on c.oid = p.polrelid
+         where c.relname = $1`,
+          [table],
+        );
+        return rows.map((row) => row.cmd).sort();
+      });
+
+      // r = select, a = insert, w = update, d = delete
+      expect(commands).toContain("r");
+      expect(commands).toContain("a");
+
+      /*
+       * `instruments` et `option_contracts` ne se suppriment pas : ce sont des
+       * données de référence citées par les positions. Un instrument devenu
+       * inutile se désactive par `is_active`.
+       *
+       * `instrument_identifiers`, lui, n'est référencé par rien : un identifiant
+       * erroné se corrige en le supprimant, et sa disparition ne prive que des
+       * cours automatiques — ce que l'écran annonce déjà.
+       */
+      if (table === "instrument_identifiers") {
+        expect(commands).toContain("d");
+      } else {
+        expect(commands).not.toContain("d");
+      }
+    },
+  );
 
   it.each(SERVER_ONLY_TABLES)("%s n'a aucune politique, donc reste invisible", async (table) => {
     const flags = await tableFlags();

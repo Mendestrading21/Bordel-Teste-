@@ -3,11 +3,13 @@ import "server-only";
 import {
   buildQuoteRequests,
   createConfiguredProviders,
+  pickSubscriptionSymbols,
   refreshFxRates,
   ProviderRouter,
   refreshQuotes,
   type FxRefreshReport,
   type IdentifierRow,
+  type SubscriptionSymbol,
   type InstrumentRow,
   type QuoteRefreshOutcome,
 } from "@portfolio-lab/market-data";
@@ -258,7 +260,7 @@ export async function fetchFxRates(
  * rafraîchissement REST, qui le déclare non identifiable plutôt que de le
  * deviner.
  */
-export async function portfolioSubscriptionScope(): Promise<readonly string[]> {
+export async function portfolioSubscriptionScope(): Promise<readonly SubscriptionSymbol[]> {
   const mode = resolveDataMode();
   const userId = await currentUserId(mode);
   if (userId === null) return [];
@@ -270,22 +272,40 @@ export async function portfolioSubscriptionScope(): Promise<readonly string[]> {
     const portfolioId = portfolios.rows[0]?.id;
     if (portfolioId === undefined) return [];
 
-    const { rows } = await client.query<{ identifier_value: string }>(
-      `select distinct ii.identifier_value
+    const { rows } = await client.query<{
+      instrument_id: string;
+      identifier_type: string;
+      identifier_value: string;
+      provider: string | null;
+      exchange_mic: string | null;
+    }>(
+      `select distinct ii.instrument_id,
+              ii.identifier_type::text as identifier_type,
+              ii.identifier_value,
+              ii.provider,
+              ii.exchange_mic
          from positions p
          join instrument_identifiers ii on ii.instrument_id = p.instrument_id
         where p.portfolio_id = $1`,
       [portfolioId],
     );
 
+    const identifiers: IdentifierRow[] = rows.map((row) => ({
+      instrumentId: row.instrument_id,
+      identifierType: row.identifier_type as IdentifierRow["identifierType"],
+      identifierValue: row.identifier_value,
+      provider: row.provider,
+      exchangeMic: row.exchange_mic,
+    }));
+
     /*
      * Les valeurs hors alphabet sont écartées ici plutôt que de faire échouer
      * l'émission du jeton. Un identifiant exotique en base ne doit pas priver
      * l'utilisateur de tout le canal : il le prive de sa seule ligne.
      */
-    return rows
-      .map((row) => row.identifier_value)
-      .filter((value) => SCOPE_SYMBOL_PATTERN.test(value));
+    return pickSubscriptionSymbols(identifiers).filter((entry) =>
+      SCOPE_SYMBOL_PATTERN.test(entry.symbol),
+    );
   });
 }
 

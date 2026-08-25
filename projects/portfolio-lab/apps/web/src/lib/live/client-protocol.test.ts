@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseServerMessage, tokenProtocol } from "./client-protocol";
+import { LIVE_FRESHNESS, parseServerMessage, tokenProtocol } from "./client-protocol";
 
 const validQuote = {
   instrumentId: "i1",
@@ -93,5 +93,40 @@ describe("parseServerMessage", () => {
 describe("tokenProtocol", () => {
   it("préfixe le jeton conformément à la passerelle", () => {
     expect(tokenProtocol("abc")).toBe("portfolio-lab.token.abc");
+  });
+});
+
+describe("fraîcheur reçue du fil", () => {
+  const quote = (freshness: string): string =>
+    JSON.stringify({
+      type: "quotes",
+      quotes: [
+        {
+          providerSymbol: "AAPL",
+          price: "309.54",
+          currency: "USD",
+          freshness,
+          asOf: "2026-08-25T06:41:30.000Z",
+        },
+      ],
+    });
+
+  it("accepte les fraîcheurs que l'interface sait représenter", () => {
+    for (const value of LIVE_FRESHNESS) {
+      const message = parseServerMessage(quote(value));
+      expect(message?.type, `« ${value} » devrait être accepté`).toBe("quotes");
+    }
+  });
+
+  /*
+   * Une valeur inconnue traversait jusqu'au badge, qui s'en sert pour indexer
+   * sa table de tons : la pastille sortait sans couleur ni libellé, sur un
+   * cours par ailleurs affiché comme n'importe quel autre. Un cours dont on ne
+   * peut pas caractériser l'âge ne doit pas s'afficher comme les autres.
+   */
+  it("rejette une fraîcheur inconnue plutôt que de l'afficher sans ton", () => {
+    for (const value of ["TEMPS_REEL", "live", "", "PRESQUE_LIVE"]) {
+      expect(parseServerMessage(quote(value)), `« ${value} » devrait être rejeté`).toBeNull();
+    }
   });
 });

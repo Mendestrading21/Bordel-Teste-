@@ -7,6 +7,26 @@
  * alignées.
  */
 
+/**
+ * Fraîcheurs que l'interface sait représenter.
+ *
+ * Reprises du domaine plutôt que déclarées en `string`. Une valeur inconnue
+ * arrivant du fil traversait jusqu'au badge, qui s'en sert pour indexer sa
+ * table de tons : la pastille sortait sans couleur et sans libellé, sur un
+ * cours par ailleurs affiché comme n'importe quel autre.
+ */
+export const LIVE_FRESHNESS = [
+  "LIVE",
+  "DELAYED",
+  "EOD",
+  "NAV",
+  "MANUAL",
+  "STALE",
+  "UNAVAILABLE",
+] as const;
+
+export type LiveFreshness = (typeof LIVE_FRESHNESS)[number];
+
 export type LiveQuote = {
   readonly instrumentId: string;
   readonly provider: string;
@@ -14,7 +34,7 @@ export type LiveQuote = {
   readonly currency: string;
   readonly price: string;
   readonly priceType: string;
-  readonly freshness: string;
+  readonly freshness: LiveFreshness;
   readonly asOf: string;
   readonly receivedAt: string;
   readonly bid?: string;
@@ -105,7 +125,12 @@ function isLiveQuote(value: unknown): value is LiveQuote {
     // moteur de valorisation.
     DECIMAL_PATTERN.test(quote["price"]) &&
     typeof quote["currency"] === "string" &&
-    typeof quote["freshness"] === "string" &&
+    /*
+     * Une fraîcheur que l'interface ne sait pas représenter fait rejeter la
+     * cotation entière. Un cours dont on ne peut pas caractériser l'âge ne doit
+     * pas s'afficher comme les autres : il paraîtrait aussi sûr qu'eux.
+     */
+    LIVE_FRESHNESS.includes(quote["freshness"] as LiveFreshness) &&
     typeof quote["asOf"] === "string"
   );
 }
